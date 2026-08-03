@@ -104,8 +104,19 @@ const LuaDataService = (() => {
     }
   };
 
+  const genericLocal = {
+    subscribeCollection(name, cb) { const key = `luaBride_${name}`; cb(readLocal(key)); const h=(e)=>e.key===key&&cb(readLocal(key)); window.addEventListener('storage',h); return ()=>window.removeEventListener('storage',h); },
+    async saveCollectionDoc(name, item) { const key=`luaBride_${name}`; const all=readLocal(key); const i=all.findIndex(x=>x.id===item.id); if(i>=0) all[i]={...all[i],...item}; else all.unshift(item); writeLocal(key,all); window.dispatchEvent(new StorageEvent('storage',{key})); return item; },
+    async removeCollectionDoc(name,id){ const key=`luaBride_${name}`; writeLocal(key,readLocal(key).filter(x=>x.id!==id)); window.dispatchEvent(new StorageEvent('storage',{key})); }
+  };
+  const genericCloud = {
+    subscribeCollection(name, cb, onError) { return db.collection(name).orderBy('updatedAt','desc').onSnapshot(s=>cb(s.docs.map(d=>d.data())),onError); },
+    async saveCollectionDoc(name,item){ const payload={...item,updatedAt:new Date().toISOString()}; await db.collection(name).doc(item.id).set(payload,{merge:true}); return payload; },
+    async removeCollectionDoc(name,id){ await db.collection(name).doc(id).delete(); }
+  };
   return {
     ...(firebaseReady ? cloud : local),
+    ...(firebaseReady ? genericCloud : genericLocal),
     mode: firebaseReady ? 'firebase' : 'local'
   };
 })();

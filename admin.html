@@ -49,6 +49,10 @@
       <nav class="admin-tabs">
         <button class="admin-tab active" data-tab="reservations">예약관리</button>
         <button class="admin-tab" data-tab="customers">고객관리</button>
+        <button class="admin-tab" data-tab="contracts">계약관리</button>
+        <button class="admin-tab" data-tab="payments">결제관리</button>
+        <button class="admin-tab" data-tab="dresses">드레스관리</button>
+        <button class="admin-tab" data-tab="schedule">피팅일정</button>
       </nav>
 
       <section id="reservationsTab" class="admin-tab-panel">
@@ -106,6 +110,53 @@
           </div>
         </section>
       </section>
+
+
+
+      <section id="contractsTab" class="admin-tab-panel" hidden>
+        <section class="admin-panel ops-panel">
+          <div class="panel-head"><div><p class="eyebrow">CONTRACTS</p><h2>계약관리</h2></div><button id="newContractBtn" class="primary small">계약 추가</button></div>
+          <div class="filters"><input id="contractSearch" placeholder="고객명·연락처·계약번호 검색"><select id="contractStatusFilter"><option value="">모든 상태</option><option>상담</option><option>계약진행</option><option>계약완료</option><option>해지</option></select></div>
+          <div id="contractList" class="ops-cards"></div>
+        </section>
+      </section>
+
+      <section id="paymentsTab" class="admin-tab-panel" hidden>
+        <section class="stats">
+          <article><span>총 계약금액</span><b id="paymentTotal">0원</b></article>
+          <article><span>총 수납액</span><b id="paidTotal">0원</b></article>
+          <article><span>총 미수금</span><b id="balanceTotal">0원</b></article>
+          <article><span>미수 고객</span><b id="unpaidCount">0</b></article>
+        </section>
+        <section class="admin-panel ops-panel">
+          <div class="panel-head"><div><p class="eyebrow">PAYMENTS</p><h2>결제관리</h2></div><button id="newPaymentBtn" class="primary small">결제 기록 추가</button></div>
+          <div class="filters"><input id="paymentSearch" placeholder="고객명·연락처·메모 검색"><select id="paymentMethodFilter"><option value="">모든 결제수단</option><option>카드</option><option>계좌이체</option><option>현금</option><option>기타</option></select></div>
+          <div id="paymentList" class="ops-cards"></div>
+        </section>
+      </section>
+
+      <section id="dressesTab" class="admin-tab-panel" hidden>
+        <section class="stats">
+          <article><span>전체 드레스</span><b id="dressCount">0</b></article>
+          <article><span>피팅 가능</span><b id="dressAvailableCount">0</b></article>
+          <article><span>대여·예약</span><b id="dressBookedCount">0</b></article>
+          <article><span>세탁·수선</span><b id="dressCareCount">0</b></article>
+        </section>
+        <section class="admin-panel ops-panel">
+          <div class="panel-head"><div><p class="eyebrow">DRESS INVENTORY</p><h2>드레스관리</h2></div><button id="newDressBtn" class="primary small">드레스 추가</button></div>
+          <div class="filters"><input id="dressSearch" placeholder="품번·드레스명·브랜드 검색"><select id="dressStatusFilter"><option value="">모든 상태</option><option>피팅 가능</option><option>예약됨</option><option>대여 중</option><option>세탁 중</option><option>수선 중</option><option>보관 중</option></select></div>
+          <div id="dressList" class="dress-grid"></div>
+        </section>
+      </section>
+
+      <section id="scheduleTab" class="admin-tab-panel" hidden>
+        <section class="admin-panel ops-panel">
+          <div class="panel-head"><div><p class="eyebrow">FITTING SCHEDULE</p><h2>피팅 일정표</h2></div><input id="scheduleDate" type="date"></div>
+          <div id="scheduleBoard" class="schedule-board"></div>
+        </section>
+      </section>
+
+      <div id="opsModal" class="ops-modal" hidden><div class="ops-modal-card"><button id="opsModalClose" class="modal-x">×</button><div id="opsModalBody"></div></div></div>
 
       <section class="integration-note">
         <h2>운영 상태</h2>
