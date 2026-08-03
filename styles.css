@@ -71,3 +71,29 @@ textarea{padding:13px;border:1px solid var(--line);font:inherit;resize:vertical}
   .crm-grid{grid-template-columns:1fr}
   .crm-wide{grid-column:auto}
 }
+/* 고객정보 저장 안내 */
+#customerSaveResult {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  line-height: 1.6;
+}
+
+#customerSaveResult.save-success {
+  display: block;
+  background: #edf8f1;
+  border: 1px solid #9fd0ae;
+  color: #245c36;
+}
+
+#customerSaveResult.save-error {
+  display: block;
+  background: #fff0f0;
+  border: 1px solid #e6aaaa;
+  color: #8a2e2e;
+}
+
+#customerSaveResult.fade-notice {
+  opacity: 0.7;
+  transition: opacity 0.4s ease;
+}
