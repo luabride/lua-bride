@@ -97,3 +97,44 @@ textarea{padding:13px;border:1px solid var(--line);font:inherit;resize:vertical}
   opacity: 0.7;
   transition: opacity 0.4s ease;
 }
+
+/* Lua Bride CRM */
+.admin-tabs{display:flex;gap:8px;margin:0 0 22px}
+.admin-tab{border:1px solid var(--line);background:#fff;padding:12px 22px;cursor:pointer}
+.admin-tab.active{background:var(--char);color:#fff;border-color:var(--char)}
+.admin-tab-panel[hidden]{display:none!important}
+.customer-layout{display:grid;grid-template-columns:340px 1fr;min-height:620px}
+.customer-list{border-right:1px solid #eee;max-height:760px;overflow:auto}
+.customer-card{display:grid;width:100%;text-align:left;padding:18px;border:0;border-bottom:1px solid #eee;background:#fff;cursor:pointer}
+.customer-card:hover,.customer-card.active{background:#f8f5f0}
+.customer-card b{font-family:'Gowun Batang';font-size:18px}
+.customer-card span{font-size:13px;margin-top:5px}
+.customer-card small{color:#9a773d;margin-top:8px}
+.customer-detail{padding:28px}
+.crm-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #eee;padding-bottom:18px;margin-bottom:22px}
+.crm-head h2{font-size:34px;margin:4px 0}
+.crm-head a{color:#8a6b36}
+.crm-stage{background:#eee6da;color:#7d5d29;padding:8px 12px;border-radius:99px;font-size:12px}
+.crm-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:20px}
+.crm-grid label{display:grid;gap:7px;font-size:12px}
+.crm-grid input,.crm-grid select,.crm-grid textarea{padding:12px;border:1px solid var(--line);font:inherit;background:#fff}
+.crm-wide{grid-column:1/-1}
+.customer-history{margin-top:34px;border-top:1px solid #eee;padding-top:24px}
+.customer-history h3{font-size:24px}
+.customer-history article{display:grid;grid-template-columns:150px 1fr;gap:8px;padding:14px 0;border-bottom:1px solid #eee}
+.customer-history article small{grid-column:2;color:#888}
+.open-customer{display:block;margin-bottom:4px}
+@media(max-width:900px){
+  .customer-layout{grid-template-columns:1fr}
+  .customer-list{border-right:0;border-bottom:1px solid #eee;max-height:300px}
+  .crm-grid{grid-template-columns:1fr}
+  .crm-wide{grid-column:auto}
+}
+
+
+.admin-toast{position:fixed;top:24px;right:24px;z-index:9999;min-width:300px;max-width:420px;padding:16px 18px;border-radius:10px;box-shadow:0 14px 40px rgba(0,0,0,.18);opacity:0;transform:translateY(-12px);pointer-events:none;transition:.25s ease;line-height:1.55;background:#fff}
+.admin-toast.show{opacity:1;transform:translateY(0)}
+.admin-toast.success{background:#edf8f1;border:1px solid #9fd0ae;color:#245c36}
+.admin-toast.error{background:#fff0f0;border:1px solid #e6aaaa;color:#8a2e2e}
+.admin-toast b,.admin-toast small{display:block}.admin-toast small{margin-top:3px}
+@media(max-width:600px){.admin-toast{left:16px;right:16px;top:16px;min-width:0}}
