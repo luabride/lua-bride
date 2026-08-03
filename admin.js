@@ -29,8 +29,7 @@ function showApp(user) {
   document.getElementById('modeNote').textContent =
     LuaDataService.mode === 'firebase'
       ? `온라인 저장 활성화. 로그인 계정: ${user?.email || '-'}`
-      : '현재 이 브라우저에만 저장되는 데모 모드입니다.\n실제 배포 전 Firebase Auth와 Firestore를 설정하세요.';
-
+     :'현재 이 브라우저에만 저장되는 데모 모드입니다. 실제 배포 전 Firebase Auth와 Firestore를 설정하세요.'
   if (!unsubscribeData) {
     unsubscribeData = LuaDataService.subscribe((data) => {
       allData = data;
