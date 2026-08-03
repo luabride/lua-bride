@@ -17,9 +17,17 @@ const esc = (s = '') =>
 
 let unsubscribeData = null;
 
+function setVisible(element, visible, displayValue = 'block') {
+  element.hidden = !visible;
+  element.style.display = visible ? displayValue : 'none';
+}
+
 function showApp(user) {
-  document.getElementById('loginGate').hidden = true;
-  document.getElementById('adminApp').hidden = false;
+  const loginGate = document.getElementById('loginGate');
+  const adminApp = document.getElementById('adminApp');
+
+  setVisible(loginGate, false);
+  setVisible(adminApp, true, 'block');
 
   const badge = document.getElementById('storageBadge');
   badge.textContent =
@@ -29,18 +37,35 @@ function showApp(user) {
   document.getElementById('modeNote').textContent =
     LuaDataService.mode === 'firebase'
       ? `온라인 저장 활성화. 로그인 계정: ${user?.email || '-'}`
-     :'현재 이 브라우저에만 저장되는 데모 모드입니다. 실제 배포 전 Firebase Auth와 Firestore를 설정하세요.'
+      : '현재 이 브라우저에만 저장되는 데모 모드입니다. 실제 배포 전 Firebase Auth와 Firestore를 설정하세요.';
+
   if (!unsubscribeData) {
-    unsubscribeData = LuaDataService.subscribe((data) => {
-      allData = data;
-      render();
-    });
+    try {
+      unsubscribeData = LuaDataService.subscribe(
+        (data) => {
+          allData = data;
+          render();
+        },
+        (error) => {
+          console.error('Firestore subscription error:', error);
+          document.getElementById('modeNote').textContent =
+            `로그인은 성공했지만 예약 데이터를 불러오지 못했습니다: ${error.code || error.message}`;
+        }
+      );
+    } catch (error) {
+      console.error('Reservation subscription start error:', error);
+      document.getElementById('modeNote').textContent =
+        `로그인은 성공했지만 예약 데이터 연결에 실패했습니다: ${error.code || error.message}`;
+    }
   }
 }
 
 function showLogin() {
-  document.getElementById('loginGate').hidden = false;
-  document.getElementById('adminApp').hidden = true;
+  const loginGate = document.getElementById('loginGate');
+  const adminApp = document.getElementById('adminApp');
+
+  setVisible(loginGate, true, 'grid');
+  setVisible(adminApp, false);
 
   if (unsubscribeData) {
     unsubscribeData();
@@ -52,6 +77,7 @@ function translateAuthError(err) {
   const code = err?.code || '';
   const messages = {
     'auth/invalid-credential': '이메일 또는 비밀번호가 올바르지 않습니다.',
+    'auth/invalid-login-credentials': '이메일 또는 비밀번호가 올바르지 않습니다.',
     'auth/user-not-found': '등록되지 않은 관리자 이메일입니다.',
     'auth/wrong-password': '비밀번호가 올바르지 않습니다.',
     'auth/invalid-email': '이메일 형식이 올바르지 않습니다.',
@@ -67,10 +93,10 @@ function translateAuthError(err) {
 document.getElementById('loginForm').onsubmit = async (event) => {
   event.preventDefault();
 
-  const error = document.getElementById('loginError');
+  const errorBox = document.getElementById('loginError');
   const button = event.currentTarget.querySelector('button[type="submit"]');
-  error.style.display = 'none';
-  error.textContent = '';
+  errorBox.style.display = 'none';
+  errorBox.textContent = '';
   button.disabled = true;
   button.textContent = '로그인 중...';
 
@@ -78,21 +104,30 @@ document.getElementById('loginForm').onsubmit = async (event) => {
     const email = document.getElementById('adminEmail').value.trim();
     const password = document.getElementById('adminPassword').value;
 
-    await LuaAuthService.login(email, password);
+    const result = await LuaAuthService.login(email, password);
+
+    // onAuthStateChanged가 늦거나 브라우저에서 지연되는 경우에도 즉시 화면 전환
+    const user = result?.user || LuaAuthService.current();
+    if (user) {
+      showApp(user);
+    }
   } catch (err) {
     console.error('Lua Bride admin login error:', err);
-    error.textContent =
+    errorBox.textContent =
       LuaAuthService.mode === 'firebase'
         ? translateAuthError(err)
         : '데모 비밀번호가 올바르지 않습니다.';
-    error.style.display = 'block';
+    errorBox.style.display = 'block';
   } finally {
     button.disabled = false;
     button.textContent = '로그인';
   }
 };
 
-document.getElementById('logoutBtn').onclick = () => LuaAuthService.logout();
+document.getElementById('logoutBtn').onclick = async () => {
+  await LuaAuthService.logout();
+  showLogin();
+};
 
 function render() {
   let data = [...allData];
