@@ -5,3 +5,36 @@ textarea{padding:13px;border:1px solid var(--line);font:inherit;resize:vertical}
 .subpage,.policy-page{background:#f8f5f0}.lookup-main{min-height:calc(100vh - 160px);display:grid;place-items:center;padding:120px 20px 60px}.lookup-card{width:min(680px,100%);background:#fff;padding:48px;border:1px solid #e7ddcf;box-shadow:0 20px 60px rgba(54,44,34,.08)}.lookup-card h1{font-family:'Gowun Batang',serif;font-size:42px;margin:.25em 0}.lookup-card form{display:grid;gap:18px;margin-top:30px}.lookup-result{margin-top:24px}.reservation-ticket{padding:26px;border:1px solid #d9c6a6;background:#fffdf9}.reservation-ticket h2{font-size:28px}.reservation-ticket dl{display:grid;gap:10px}.reservation-ticket dl div{display:flex;justify-content:space-between;border-bottom:1px solid #eee6dc;padding:10px 0}.reservation-ticket dt{color:#756b60}.ticket-memo{background:#f8f5f0;padding:14px}.privacy-note{font-size:13px;color:#756b60;margin-top:24px}.policy{width:min(800px,calc(100% - 40px));margin:60px auto;background:#fff;padding:48px;line-height:1.8}.policy h1{font-size:40px}.policy h2{margin-top:30px}.policy-warning{margin-top:30px;padding:18px;background:#fff4d8;border:1px solid #e5c985}.error{border-left:4px solid #a95353}footer a{color:inherit}
 @media(max-width:640px){.lookup-card,.policy{padding:28px}.lookup-card h1,.policy h1{font-size:32px}.reservation-ticket dl div{display:block}.reservation-ticket dd{margin:5px 0 0}}
 .policy-links{font-size:.85rem;margin:.8rem 0}.policy-links a{text-decoration:underline}.payment-box{border:1px solid #d8c49c;background:#fffaf0;padding:14px;border-radius:12px;margin:12px 0}.payment-box strong{display:block;margin-bottom:4px}.policy-page{background:#f8f5f0}.policy-wrap{max-width:820px;margin:0 auto;padding:70px 24px;line-height:1.8}.policy-wrap section{background:#fff;padding:24px;margin:18px 0;border-radius:16px}.policy-wrap .notice{border-left:4px solid #c8a96a;padding:12px 16px;background:#fffaf0}
+
+/* Lua Bride CRM */
+.admin-tabs{display:flex;gap:8px;margin:0 0 22px}
+.admin-tab{border:1px solid var(--line);background:#fff;padding:12px 22px;cursor:pointer}
+.admin-tab.active{background:var(--char);color:#fff;border-color:var(--char)}
+.admin-tab-panel[hidden]{display:none!important}
+.customer-layout{display:grid;grid-template-columns:340px 1fr;min-height:620px}
+.customer-list{border-right:1px solid #eee;max-height:760px;overflow:auto}
+.customer-card{display:grid;width:100%;text-align:left;padding:18px;border:0;border-bottom:1px solid #eee;background:#fff;cursor:pointer}
+.customer-card:hover,.customer-card.active{background:#f8f5f0}
+.customer-card b{font-family:'Gowun Batang';font-size:18px}
+.customer-card span{font-size:13px;margin-top:5px}
+.customer-card small{color:#9a773d;margin-top:8px}
+.customer-detail{padding:28px}
+.crm-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #eee;padding-bottom:18px;margin-bottom:22px}
+.crm-head h2{font-size:34px;margin:4px 0}
+.crm-head a{color:#8a6b36}
+.crm-stage{background:#eee6da;color:#7d5d29;padding:8px 12px;border-radius:99px;font-size:12px}
+.crm-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:20px}
+.crm-grid label{display:grid;gap:7px;font-size:12px}
+.crm-grid input,.crm-grid select,.crm-grid textarea{padding:12px;border:1px solid var(--line);font:inherit;background:#fff}
+.crm-wide{grid-column:1/-1}
+.customer-history{margin-top:34px;border-top:1px solid #eee;padding-top:24px}
+.customer-history h3{font-size:24px}
+.customer-history article{display:grid;grid-template-columns:150px 1fr;gap:8px;padding:14px 0;border-bottom:1px solid #eee}
+.customer-history article small{grid-column:2;color:#888}
+.open-customer{display:block;margin-bottom:4px}
+@media(max-width:900px){
+  .customer-layout{grid-template-columns:1fr}
+  .customer-list{border-right:0;border-bottom:1px solid #eee;max-height:300px}
+  .crm-grid{grid-template-columns:1fr}
+  .crm-wide{grid-column:auto}
+}
