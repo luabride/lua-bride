@@ -203,6 +203,9 @@ function mergedCustomers() {
       name: reservation.name,
       phone: reservation.phone,
       weddingDate: reservation.weddingDate || '',
+      fittingDate: '',
+      fittingTime: '',
+      fittingPurpose: '드레스 피팅',
       stage: '신규',
       venue: '',
       budget: '',
@@ -335,6 +338,15 @@ function showCustomerDetail(customer) {
           </select>
         </label>
         <label>예식일<input name="weddingDate" type="date" value="${esc(customer.weddingDate || '')}"></label>
+        <label>피팅 날짜<input name="fittingDate" type="date" value="${esc(customer.fittingDate || '')}"></label>
+        <label>피팅 시간<input name="fittingTime" type="time" value="${esc(customer.fittingTime || '')}"></label>
+        <label>피팅 구분
+          <select name="fittingPurpose">
+            ${['드레스 피팅', '1차 피팅', '2차 피팅', '최종 피팅', '가봉', '기타'].map((purpose) =>
+              `<option ${customer.fittingPurpose === purpose ? 'selected' : ''}>${purpose}</option>`
+            ).join('')}
+          </select>
+        </label>
         <label>예식장<input name="venue" value="${esc(customer.venue || '')}" placeholder="예: 부산 ○○호텔"></label>
         <label>예산<input name="budget" value="${esc(customer.budget || '')}" placeholder="예: 200~300만원"></label>
         <label>손님구분
@@ -383,6 +395,9 @@ async function saveCustomer(event) {
     name: data.get('name').trim(),
     phone,
     weddingDate: data.get('weddingDate'),
+    fittingDate: data.get('fittingDate'),
+    fittingTime: data.get('fittingTime'),
+    fittingPurpose: data.get('fittingPurpose') || '드레스 피팅',
     stage: data.get('stage'),
     venue: data.get('venue').trim(),
     budget: data.get('budget').trim(),
@@ -401,7 +416,8 @@ async function saveCustomer(event) {
   try {
     await LuaDataService.saveCustomer(customer);
     selectedCustomerId = customer.id;
-    showToast('<b>고객정보가 저장되었습니다.</b><small>변경사항이 Firebase에 반영되었습니다.</small>', 'success');
+    showToast('<b>고객정보가 저장되었습니다.</b><small>피팅 일정도 자동으로 연동되었습니다.</small>', 'success');
+    renderSchedule();
   } catch (error) {
     console.error('Customer save error:', error);
     showToast(`<b>고객정보 저장에 실패했습니다.</b><small>${esc(error?.code || error?.message || '알 수 없는 오류')}</small>`, 'error');
@@ -448,6 +464,9 @@ function exportCustomers() {
       customer.stage,
       customer.customerType,
       customer.weddingDate,
+      customer.fittingDate,
+      customer.fittingTime,
+      customer.fittingPurpose,
       customer.venue,
       customer.budget,
       customer.style,
@@ -500,7 +519,41 @@ function dressForm(item={}){return `<form class="ops-form"><p class="eyebrow">DR
 async function saveDress(e){e.preventDefault();const d=new FormData(e.target);const customer=customerById(d.get('customerId'));const item={id:d.get('id')||makeDocId('DR'),code:d.get('code').trim(),name:d.get('name').trim(),brand:d.get('brand').trim(),size:d.get('size').trim(),color:d.get('color').trim(),status:d.get('status'),wearCount:Number(d.get('wearCount')||0),customerId:d.get('customerId'),customerName:customer.name||'',memo:d.get('memo').trim(),updatedAt:new Date().toISOString()};await LuaDataService.saveCollectionDoc('dresses',item);showToast('<b>드레스 정보가 저장되었습니다.</b>');closeOpsModal();}
 function renderDresses(){const q=($('dressSearch')?.value||'').toLowerCase();const st=$('dressStatusFilter')?.value||'';const list=dressesData.filter(x=>(!st||x.status===st)&&(!q||[x.code,x.name,x.brand].some(v=>String(v||'').toLowerCase().includes(q))));$('dressCount').textContent=dressesData.length;$('dressAvailableCount').textContent=dressesData.filter(x=>x.status==='피팅 가능').length;$('dressBookedCount').textContent=dressesData.filter(x=>['예약됨','대여 중'].includes(x.status)).length;$('dressCareCount').textContent=dressesData.filter(x=>['세탁 중','수선 중'].includes(x.status)).length;$('dressList').innerHTML=list.map(x=>`<article class="dress-card"><span class="status-chip">${esc(x.status)}</span><h3>${esc(x.name)}</h3><p>${esc(x.code)} · ${esc(x.brand||'-')}</p><dl><dt>사이즈</dt><dd>${esc(x.size||'-')}</dd><dt>착용횟수</dt><dd>${x.wearCount||0}회</dd><dt>고객</dt><dd>${esc(x.customerName||'-')}</dd></dl><div><button class="secondary small edit-dress" data-id="${esc(x.id)}">수정</button><button class="danger-link remove-dress" data-id="${esc(x.id)}">삭제</button></div></article>`).join('')||'<div class="empty">등록된 드레스가 없습니다.</div>';document.querySelectorAll('.edit-dress').forEach(b=>b.onclick=()=>openOpsModal(dressForm(dressesData.find(x=>x.id===b.dataset.id)),saveDress));document.querySelectorAll('.remove-dress').forEach(b=>b.onclick=async()=>{if(confirm('드레스를 삭제할까요?'))await LuaDataService.removeCollectionDoc('dresses',b.dataset.id)});}
 
-function renderSchedule(){const date=$('scheduleDate').value||new Date().toISOString().slice(0,10);$('scheduleDate').value=date;const list=allData.filter(x=>x.date===date&&x.status!=='취소').sort((a,b)=>String(a.time).localeCompare(String(b.time)));$('scheduleBoard').innerHTML=list.map(x=>`<article class="schedule-item"><time>${esc(x.time)}</time><div><h3>${esc(x.name)}</h3><p>${esc(x.phone)} · ${esc(x.purpose)}</p><small>${esc(x.memo||'')}</small></div><span class="status-chip">${esc(x.status)}</span></article>`).join('')||'<div class="empty">선택한 날짜의 예약이 없습니다.</div>';}
+function renderSchedule(){
+  const date=$('scheduleDate').value||new Date().toISOString().slice(0,10);
+  $('scheduleDate').value=date;
+
+  const reservationItems=allData
+    .filter(x=>x.date===date&&x.status!=='취소')
+    .map(x=>({
+      key:`${customerIdFromPhone(x.phone)}-${x.date}-${x.time}`,
+      time:x.time||'',
+      name:x.name||'',
+      phone:x.phone||'',
+      purpose:x.purpose||'예약',
+      memo:x.memo||'',
+      status:x.status||'신청',
+      source:'예약'
+    }));
+
+  const existingKeys=new Set(reservationItems.map(x=>x.key));
+  const customerItems=mergedCustomers()
+    .filter(c=>c.fittingDate===date&&c.fittingTime)
+    .map(c=>({
+      key:`${c.id}-${c.fittingDate}-${c.fittingTime}`,
+      time:c.fittingTime||'',
+      name:c.name||'',
+      phone:c.phone||'',
+      purpose:c.fittingPurpose||'드레스 피팅',
+      memo:[c.selectedDress?`드레스: ${c.selectedDress}`:'',c.tiara?`티아라: ${c.tiara}`:'',c.veil?`베일: ${c.veil}`:''].filter(Boolean).join(' · '),
+      status:'고객관리',
+      source:'고객관리'
+    }))
+    .filter(x=>!existingKeys.has(x.key));
+
+  const list=[...reservationItems,...customerItems].sort((a,b)=>String(a.time).localeCompare(String(b.time)));
+  $('scheduleBoard').innerHTML=list.map(x=>`<article class="schedule-item"><time>${esc(x.time)}</time><div><h3>${esc(x.name)}</h3><p>${esc(x.phone)} · ${esc(x.purpose)}</p><small>${esc(x.memo||'')}</small></div><span class="status-chip">${esc(x.source)}</span></article>`).join('')||'<div class="empty">선택한 날짜의 피팅 일정이 없습니다.</div>';
+}
 
 $('newContractBtn').onclick=()=>openOpsModal(contractForm(),saveContract);
 $('newPaymentBtn').onclick=()=>openOpsModal(paymentForm(),savePayment);
