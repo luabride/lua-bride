@@ -28,3 +28,8 @@ npm test
 Firebase가 설정되지 않은 로컬 데모에서만 비밀번호 `luabride`를 사용할 수 있습니다. 실제 배포에서는 Firebase Authentication을 설정하세요.
 
 자세한 내용은 `docs/DEPLOYMENT.md`와 `docs/OPEN_CHECKLIST.md`를 확인하세요.
+
+## v7 Firebase 적용
+`firebase-config.js`에 Lua Bride Firebase 웹 앱 설정이 적용되어 있습니다.
+Firebase Console에서 Authentication, Firestore, 보안 규칙을 활성화해야 실제 온라인 예약과 관리자 로그인이 작동합니다.
+자세한 순서는 `docs/FIREBASE_SETUP.md`를 확인하세요.
