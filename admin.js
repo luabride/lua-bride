@@ -186,6 +186,10 @@ function mergedCustomers() {
       venue: '',
       budget: '',
       style: '',
+      customerType: '',
+      selectedDress: '',
+      tiara: '',
+      veil: '',
       memo: '',
       createdAt: reservation.createdAt,
       updatedAt: reservation.updatedAt || reservation.createdAt,
@@ -225,7 +229,11 @@ function renderCustomers() {
       customer.phone,
       customer.venue,
       customer.memo,
-      customer.style
+      customer.style,
+      customer.customerType,
+      customer.selectedDress,
+      customer.tiara,
+      customer.veil
     ].some((value) => String(value || '').toLowerCase().includes(query));
 
     return stageMatch && queryMatch;
@@ -308,7 +316,18 @@ function showCustomerDetail(customer) {
         <label>예식일<input name="weddingDate" type="date" value="${esc(customer.weddingDate || '')}"></label>
         <label>예식장<input name="venue" value="${esc(customer.venue || '')}" placeholder="예: 부산 ○○호텔"></label>
         <label>예산<input name="budget" value="${esc(customer.budget || '')}" placeholder="예: 200~300만원"></label>
+        <label>손님구분
+          <select name="customerType">
+            <option value="">선택</option>
+            ${['다이렉트', '자체', '기타'].map((type) =>
+              `<option ${customer.customerType === type ? 'selected' : ''}>${type}</option>`
+            ).join('')}
+          </select>
+        </label>
         <label class="crm-wide">관심 스타일<input name="style" value="${esc(customer.style || '')}" placeholder="예: A라인, 심플, 비즈"></label>
+        <label class="crm-wide">선택한 드레스명<input name="selectedDress" value="${esc(customer.selectedDress || '')}" placeholder="예: Signature No.12"></label>
+        <label class="crm-wide">티아라 종류 및 제품명<input name="tiara" value="${esc(customer.tiara || '')}" placeholder="예: 크라운형 / T-07 로즈골드"></label>
+        <label class="crm-wide">선택한 베일<input name="veil" value="${esc(customer.veil || '')}" placeholder="예: 3m 레이스 롱베일 V-03"></label>
         <label class="crm-wide">상담 메모<textarea name="memo" rows="6" placeholder="상담 내용, 동행자, 주의사항 등을 기록하세요.">${esc(customer.memo || '')}</textarea></label>
       </div>
 
@@ -345,6 +364,10 @@ async function saveCustomer(event) {
     venue: data.get('venue').trim(),
     budget: data.get('budget').trim(),
     style: data.get('style').trim(),
+    customerType: data.get('customerType'),
+    selectedDress: data.get('selectedDress').trim(),
+    tiara: data.get('tiara').trim(),
+    veil: data.get('veil').trim(),
     memo: data.get('memo').trim(),
     updatedAt: new Date().toISOString()
   };
@@ -392,15 +415,19 @@ function exportReservations() {
 function exportCustomers() {
   downloadCsv(
     `lua-bride-customers-${new Date().toISOString().slice(0, 10)}.csv`,
-    ['고객명', '연락처', '단계', '예식일', '예식장', '예산', '관심스타일', '상담메모', '예약횟수'],
+    ['고객명', '연락처', '단계', '손님구분', '예식일', '예식장', '예산', '관심스타일', '선택드레스', '티아라', '베일', '상담메모', '예약횟수'],
     mergedCustomers().map((customer) => [
       customer.name,
       customer.phone,
       customer.stage,
+      customer.customerType,
       customer.weddingDate,
       customer.venue,
       customer.budget,
       customer.style,
+      customer.selectedDress,
+      customer.tiara,
+      customer.veil,
       customer.memo,
       customer.reservations.length
     ])
