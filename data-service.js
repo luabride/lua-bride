@@ -1,5 +1,6 @@
 const LuaDataService = (() => {
-  const KEY = 'luaBrideReservations';
+  const RES_KEY = 'luaBrideReservations';
+  const CUS_KEY = 'luaBrideCustomers';
   const config = window.LUA_FIREBASE_CONFIG || null;
   const firebaseReady = Boolean(config && config.apiKey && window.firebase?.initializeApp);
   let db = null;
@@ -9,41 +10,52 @@ const LuaDataService = (() => {
     db = firebase.firestore();
   }
 
+  const readLocal = (key) => {
+    try { return JSON.parse(localStorage.getItem(key)) || []; }
+    catch { return []; }
+  };
+
+  const writeLocal = (key, data) => localStorage.setItem(key, JSON.stringify(data));
+
   const local = {
-    async list() {
-      try {
-        return JSON.parse(localStorage.getItem(KEY)) || [];
-      } catch {
-        return [];
-      }
-    },
+    async list() { return readLocal(RES_KEY); },
     async add(item) {
-      const all = await this.list();
+      const all = readLocal(RES_KEY);
       all.unshift(item);
-      localStorage.setItem(KEY, JSON.stringify(all));
+      writeLocal(RES_KEY, all);
       return item;
     },
     async update(id, patch) {
-      const all = await this.list();
-      const i = all.findIndex((x) => x.id === id);
-      if (i >= 0) {
-        all[i] = { ...all[i], ...patch, updatedAt: new Date().toISOString() };
-        localStorage.setItem(KEY, JSON.stringify(all));
-        return all[i];
-      }
-      return null;
+      const all = readLocal(RES_KEY);
+      const index = all.findIndex((x) => x.id === id);
+      if (index < 0) return null;
+      all[index] = { ...all[index], ...patch, updatedAt: new Date().toISOString() };
+      writeLocal(RES_KEY, all);
+      return all[index];
     },
     async remove(id) {
-      const all = (await this.list()).filter((x) => x.id !== id);
-      localStorage.setItem(KEY, JSON.stringify(all));
+      writeLocal(RES_KEY, readLocal(RES_KEY).filter((x) => x.id !== id));
     },
     subscribe(cb) {
-      this.list().then(cb);
-      const fn = (e) => {
-        if (e.key === KEY) this.list().then(cb);
-      };
-      window.addEventListener('storage', fn);
-      return () => window.removeEventListener('storage', fn);
+      cb(readLocal(RES_KEY));
+      const handler = (event) => event.key === RES_KEY && cb(readLocal(RES_KEY));
+      window.addEventListener('storage', handler);
+      return () => window.removeEventListener('storage', handler);
+    },
+    async listCustomers() { return readLocal(CUS_KEY); },
+    async saveCustomer(customer) {
+      const all = readLocal(CUS_KEY);
+      const index = all.findIndex((x) => x.id === customer.id);
+      if (index >= 0) all[index] = { ...all[index], ...customer };
+      else all.unshift(customer);
+      writeLocal(CUS_KEY, all);
+      return customer;
+    },
+    subscribeCustomers(cb) {
+      cb(readLocal(CUS_KEY));
+      const handler = (event) => event.key === CUS_KEY && cb(readLocal(CUS_KEY));
+      window.addEventListener('storage', handler);
+      return () => window.removeEventListener('storage', handler);
     }
   };
 
@@ -70,10 +82,24 @@ const LuaDataService = (() => {
         .orderBy('createdAt', 'desc')
         .onSnapshot(
           (snapshot) => cb(snapshot.docs.map((d) => d.data())),
-          (error) => {
-            console.error('Firestore listener error:', error);
-            if (onError) onError(error);
-          }
+          onError
+        );
+    },
+    async listCustomers() {
+      const snap = await db.collection('customers').orderBy('updatedAt', 'desc').get();
+      return snap.docs.map((d) => d.data());
+    },
+    async saveCustomer(customer) {
+      const payload = { ...customer, updatedAt: new Date().toISOString() };
+      await db.collection('customers').doc(customer.id).set(payload, { merge: true });
+      return payload;
+    },
+    subscribeCustomers(cb, onError) {
+      return db.collection('customers')
+        .orderBy('updatedAt', 'desc')
+        .onSnapshot(
+          (snapshot) => cb(snapshot.docs.map((d) => d.data())),
+          onError
         );
     }
   };
