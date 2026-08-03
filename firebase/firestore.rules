@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function validReservation() {
+      return request.resource.data.keys().hasAll(['id','name','phone','date','time','purpose','status','createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.phone is string
+        && request.resource.data.date is string
+        && request.resource.data.time is string
+        && request.resource.data.status == '신청';
+    }
+    match /reservations/{reservationId} {
+      allow create: if validReservation();
+      allow read, update, delete: if signedIn();
+    }
+  }
+}
