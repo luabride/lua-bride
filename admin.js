@@ -9,6 +9,15 @@ const esc = (value = '') => String(value).replace(/[&<>'"]/g, (char) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
 }[char]));
 const customerIdFromPhone = (phone = '') => phone.replace(/\D/g, '') || 'unknown';
+let toastTimer = null;
+function showToast(message, type = 'success') {
+  const toast = $('adminToast');
+  if (!toast) return;
+  clearTimeout(toastTimer);
+  toast.className = `admin-toast ${type} show`;
+  toast.innerHTML = message;
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 4500);
+}
 
 function setVisible(element, visible, displayValue = 'block') {
   element.hidden = !visible;
@@ -352,8 +361,10 @@ function showCustomerDetail(customer) {
 
 async function saveCustomer(event) {
   event.preventDefault();
-  const data = new FormData(event.target);
+  const form = event.target;
+  const data = new FormData(form);
   const phone = data.get('phone').trim();
+  const button = form.querySelector('button[type="submit"]');
 
   const customer = {
     id: data.get('id') || customerIdFromPhone(phone),
@@ -372,16 +383,19 @@ async function saveCustomer(event) {
     updatedAt: new Date().toISOString()
   };
 
-  const box = $('customerSaveResult');
+  button.disabled = true;
+  button.textContent = '저장 중...';
 
   try {
     await LuaDataService.saveCustomer(customer);
     selectedCustomerId = customer.id;
-    box.textContent = '고객정보가 저장되었습니다.';
-    box.style.display = 'block';
+    showToast('<b>고객정보가 저장되었습니다.</b><small>변경사항이 Firebase에 반영되었습니다.</small>', 'success');
   } catch (error) {
-    box.textContent = `저장 실패: ${error?.code || error?.message}`;
-    box.style.display = 'block';
+    console.error('Customer save error:', error);
+    showToast(`<b>고객정보 저장에 실패했습니다.</b><small>${esc(error?.code || error?.message || '알 수 없는 오류')}</small>`, 'error');
+  } finally {
+    button.disabled = false;
+    button.textContent = '고객정보 저장';
   }
 }
 
