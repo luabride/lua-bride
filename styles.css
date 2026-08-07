@@ -246,3 +246,26 @@ textarea{padding:13px;border:1px solid var(--line);font:inherit;resize:vertical}
   outline-offset:4px;
   border-radius:2px
 }
+
+/* 피팅일정 → 고객관리 연결 */
+.fitting-customer-link{
+  appearance:none;
+  border:0;
+  padding:0;
+  margin:0;
+  background:transparent;
+  color:#7d5d29;
+  font:inherit;
+  font-family:'Gowun Batang',serif;
+  font-weight:700;
+  text-decoration:underline;
+  text-decoration-thickness:1px;
+  text-underline-offset:4px;
+  cursor:pointer;
+  transition:color .2s ease,background .2s ease
+}
+.fitting-customer-link:hover{color:#2f2d2a}
+.fitting-customer-link:focus-visible{outline:2px solid var(--gold);outline-offset:4px;border-radius:3px}
+.schedule-item h3{margin:0 0 7px}
+.schedule-item .fitting-customer-link{font-size:20px}
+.customer-card.active{box-shadow:inset 4px 0 0 var(--gold);background:#f4ede2}
