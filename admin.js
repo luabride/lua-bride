@@ -13,6 +13,12 @@ let allData = [];
 let savedCustomers = [];
 let selectedCustomerId = null;
 let unsubscribeReservations = null;
+let unsubscribeIroDresses = null;
+let unsubscribeIroShoes = null;
+let unsubscribeHanbok = null;
+let iroDressesData = [];
+let iroShoesData = [];
+let hanbokData = [];
 let unsubscribeCustomers = null;
 let contractsData = [];
 let paymentsData = [];
@@ -24,13 +30,6 @@ let unsubscribeDresses = null;
   unsubscribeIroDresses = null;
   unsubscribeIroShoes = null;
   unsubscribeHanbok = null;
-let iroDressesData = [];
-let iroShoesData = [];
-let hanbokData = [];
-let unsubscribeIroDresses = null;
-let unsubscribeIroShoes = null;
-let unsubscribeHanbok = null;
-
 const $ = (id) => document.getElementById(id);
 const esc = (value = '') => String(value).replace(/[&<>'"]/g, (char) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
