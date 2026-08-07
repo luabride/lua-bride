@@ -229,3 +229,20 @@ textarea{padding:13px;border:1px solid var(--line);font:inherit;resize:vertical}
 
 /* Customer fitting link */
 .schedule-item .status-chip{white-space:nowrap}
+.fitting-customer-link{
+  border:0;
+  padding:0;
+  background:transparent;
+  color:#7d5d29;
+  font:inherit;
+  font-weight:700;
+  text-decoration:underline;
+  text-underline-offset:3px;
+  cursor:pointer
+}
+.fitting-customer-link:hover{color:#3f3120}
+.fitting-customer-link:focus-visible{
+  outline:2px solid #c8a96a;
+  outline-offset:4px;
+  border-radius:2px
+}
