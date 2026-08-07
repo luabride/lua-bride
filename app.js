@@ -72,3 +72,97 @@ setMinDates();
 (()=>{const c=window.LUA_SITE_CONFIG||{};const address=document.getElementById('shopAddress'),hours=document.getElementById('shopHours'),phone=document.getElementById('phoneLink'),kakao=document.getElementById('kakaoLink');if(address)address.textContent=c.address||address.textContent;if(hours)hours.textContent=c.hours||hours.textContent;if(phone&&c.phoneLink){phone.href='tel:'+c.phoneLink;phone.textContent='전화 상담 '+(c.phone||'')}if(kakao&&c.kakaoUrl)kakao.href=c.kakaoUrl;const time=document.getElementById('time');if(time&&Array.isArray(c.availableTimes)){time.innerHTML='<option value="">선택</option>'+c.availableTimes.map(v=>`<option>${v}</option>`).join('')}})();
 (()=>{const cfg=window.LUA_INTEGRATIONS||{};const paymentBox=document.getElementById('paymentBox');const paymentBtn=document.getElementById('paymentBtn');const depositText=document.getElementById('depositText');if(cfg.payment?.enabled&&paymentBox){paymentBox.hidden=false;depositText.textContent=`예약 확정을 위해 ${Number(cfg.payment.depositAmount||0).toLocaleString()}원 결제가 필요합니다.`;paymentBtn.onclick=()=>{if(cfg.payment.checkoutUrl)location.href=cfg.payment.checkoutUrl;else alert('결제사 상점 키와 체크아웃 주소를 설정해 주세요.')}}})();
 async function notifyReservation(reservation){const cfg=window.LUA_INTEGRATIONS||{};if(!cfg.notificationEndpoint)return;try{await fetch(cfg.notificationEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reservation})})}catch(e){console.warn('Reservation notification skipped',e)}}
+
+
+function isColorDress(dress) {
+  const color = String(dress.color || '').trim().toLowerCase();
+  if (!color) return false;
+
+  const whiteColors = [
+    'ivory', '아이보리', 'white', '화이트',
+    'off white', 'off-white', '오프화이트',
+    'cream', '크림'
+  ];
+
+  return !whiteColors.some((white) => color === white);
+}
+
+function renderPublicDressCard(dress) {
+  const image = dress.photoUrl
+    ? `<img src="${dress.photoUrl}" alt="${dress.name || '웨딩드레스'}" loading="lazy">`
+    : `<div class="public-dress-no-image">LUA BRIDE</div>`;
+
+  return `
+    <article class="public-dress-card">
+      <div class="public-dress-image">${image}</div>
+      <div class="public-dress-info">
+        <span>${dress.category || 'LUA BRIDE'}</span>
+        <h4>${dress.name || 'DRESS'}</h4>
+        <p>${dress.code || ''}${dress.color ? ` · ${dress.color}` : ''}</p>
+        <button type="button" class="wish" onclick="openReservation()">피팅 예약</button>
+      </div>
+    </article>
+  `;
+}
+
+function fillPublicDressSection(gridId, countId, items) {
+  const grid = document.getElementById(gridId);
+  const count = document.getElementById(countId);
+
+  if (!grid) return;
+
+  count.textContent = `${items.length} DRESSES`;
+
+  grid.innerHTML = items.length
+    ? items.map(renderPublicDressCard).join('')
+    : '<div class="dress-loading">등록된 드레스가 없습니다.</div>';
+}
+
+async function loadPublicDresses() {
+  try {
+    if (!window.firebase?.firestore) return;
+
+    if (!firebase.apps.length && window.LUA_FIREBASE_CONFIG) {
+      firebase.initializeApp(window.LUA_FIREBASE_CONFIG);
+    }
+
+    const snapshot = await firebase.firestore()
+      .collection('dresses')
+      .orderBy('updatedAt', 'desc')
+      .get();
+
+    const dresses = snapshot.docs.map((doc) => doc.data());
+
+    fillPublicDressSection(
+      'aiteoDressGrid',
+      'aiteoDressCount',
+      dresses.filter((dress) => dress.category === '아이테오 드레스')
+    );
+
+    fillPublicDressSection(
+      'luaDressGrid',
+      'luaDressCount',
+      dresses.filter((dress) =>
+        dress.category === '루아 드레스' || !dress.category
+      )
+    );
+
+    fillPublicDressSection(
+      'colorDressGrid',
+      'colorDressCount',
+      dresses.filter(isColorDress)
+    );
+  } catch (error) {
+    console.error('Public dress load error:', error);
+
+    ['aiteoDressGrid', 'luaDressGrid', 'colorDressGrid'].forEach((id) => {
+      const grid = document.getElementById(id);
+      if (grid) {
+        grid.innerHTML = '<div class="dress-loading">드레스 목록을 불러오지 못했습니다.</div>';
+      }
+    });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', loadPublicDresses);
+

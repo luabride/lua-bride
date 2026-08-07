@@ -1,8 +1,68 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lua Bride | Premium Wedding Dress</title><meta name="description" content="Lua Bride 프리미엄 웨딩드레스 컬렉션과 온라인 피팅 예약"><meta name="theme-color" content="#f8f5f0"><meta property="og:title" content="Lua Bride"><meta property="og:description" content="Every Bride, Beautifully Yours"><meta property="og:type" content="website"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet"><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"></head><body>
-<header><a class="brand" href="#home"><span>☾</span><b>Lua Bride</b><small>Every Bride, Beautifully Yours</small></a><nav><a href="#collection">COLLECTION</a><a href="#irostyle">이로스타일</a><a href="#bomnal">봄날한복</a><a href="#makeup">Makeup</a><a href="#ai">AI 드레스 추천</a><a href="#reservation">피팅 예약</a><a href="#reviews">REAL BRIDE</a><a href="#journal">WEDDING JOURNAL</a><a href="#contact">오시는길</a><a href="reservation.html">예약 확인</a></nav><button class="menu" aria-label="메뉴" aria-expanded="false">☰</button></header>
+<header><a class="brand" href="#home"><span>☾</span><b>Lua Bride</b><small>Every Bride, Beautifully Yours</small></a><nav>
+  <div class="nav-dropdown">
+    <a class="nav-dropdown-trigger" href="#dress">DRESS</a>
+    <div class="nav-dropdown-menu">
+      <a href="#aiteo-dress">AITEO DRESS</a>
+      <a href="#lua-dress">LUA DRESS</a>
+      <a href="#color-dress">COLOR DRESS</a>
+    </div>
+  </div>
+  <a href="#irostyle">이로스타일</a>
+  <a href="#bomnal">봄날한복</a>
+  <a href="#makeup">Makeup</a>
+  <a href="#ai">AI 드레스 추천</a>
+  <a href="#reservation">피팅 예약</a>
+  <a href="#reviews">REAL BRIDE</a>
+  <a href="#journal">WEDDING JOURNAL</a>
+  <a href="#contact">오시는길</a>
+  <a href="reservation.html">예약 확인</a>
+</nav><button class="menu" aria-label="메뉴" aria-expanded="false">☰</button></header>
 <main id="home"><section class="hero"><div class="hero-copy"><p class="eyebrow">PRIVATE WEDDING DRESS BOUTIQUE</p><h1>Every Bride,<br>Beautifully Yours</h1><p>당신의 가장 아름다운 순간을 위한<br>단 하나의 드레스</p><div class="actions"><button onclick="openReservation()" class="primary">피팅 예약하기</button><a class="secondary" href="#ai">AI 드레스 추천</a></div><div class="availability"><b>예약 가능 일정</b><div><button onclick="quickBook('오늘','15:00')">오늘 15:00</button><button onclick="quickBook('내일','11:00')">내일 11:00</button><button onclick="quickBook('토요일','14:00')">토요일 14:00</button></div></div></div><div class="hero-image"><img src="assets/hero-bride.png" alt="Lua Bride 웨딩드레스"></div></section>
-<section id="collection" class="section"><p class="eyebrow">PREMIUM COLLECTION</p><h2>Signature Dresses</h2><p class="lead">Lua Bride가 제안하는 우아하고 시대를 초월하는 드레스</p><div class="dress-grid">
-<article><img src="assets/dress-1.png" alt="A라인 드레스"><h3>A LINE</h3><p>우아함의 정석</p><button class="wish">♡ 찜하기</button></article><article><img src="assets/dress-2.png" alt="볼가운 드레스"><h3>BALL GOWN</h3><p>로맨틱한 실루엣</p><button class="wish">♡ 찜하기</button></article><article><img src="assets/dress-3.png" alt="머메이드 드레스"><h3>MERMAID</h3><p>여성스러운 라인</p><button class="wish">♡ 찜하기</button></article><article><img src="assets/dress-4.png" alt="프린세스 드레스"><h3>PRINCESS</h3><p>동화 속 주인공처럼</p><button class="wish">♡ 찜하기</button></article><article><img src="assets/dress-5.png" alt="심플 드레스"><h3>SIMPLE & MODERN</h3><p>절제된 아름다움</p><button class="wish">♡ 찜하기</button></article></div></section>
+<section id="dress" class="section dress-showcase">
+  <p class="eyebrow">LUA BRIDE DRESS</p>
+  <h2>Dress Collection</h2>
+  <p class="lead">Lua Bride가 엄선한 드레스 컬렉션을 만나보세요.</p>
+
+  <section id="aiteo-dress" class="public-dress-section">
+    <div class="public-dress-heading">
+      <div>
+        <p class="eyebrow">AITEO DRESS</p>
+        <h3>아이테오 드레스</h3>
+      </div>
+      <span id="aiteoDressCount">0 DRESSES</span>
+    </div>
+    <div id="aiteoDressGrid" class="dress-grid public-dress-grid">
+      <div class="dress-loading">드레스 목록을 불러오는 중입니다.</div>
+    </div>
+  </section>
+
+  <section id="lua-dress" class="public-dress-section">
+    <div class="public-dress-heading">
+      <div>
+        <p class="eyebrow">LUA DRESS</p>
+        <h3>루아 드레스</h3>
+      </div>
+      <span id="luaDressCount">0 DRESSES</span>
+    </div>
+    <div id="luaDressGrid" class="dress-grid public-dress-grid">
+      <div class="dress-loading">드레스 목록을 불러오는 중입니다.</div>
+    </div>
+  </section>
+
+  <section id="color-dress" class="public-dress-section">
+    <div class="public-dress-heading">
+      <div>
+        <p class="eyebrow">COLOR DRESS</p>
+        <h3>컬러 드레스</h3>
+      </div>
+      <span id="colorDressCount">0 DRESSES</span>
+    </div>
+    <div id="colorDressGrid" class="dress-grid public-dress-grid">
+      <div class="dress-loading">드레스 목록을 불러오는 중입니다.</div>
+    </div>
+  </section>
+</section>
 
 <section id="irostyle" class="section partner-section">
   <div class="partner-copy">

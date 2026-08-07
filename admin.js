@@ -6,7 +6,7 @@ let unsubscribeCustomers = null;
 let contractsData = [];
 let paymentsData = [];
 let dressesData = [];
-const DRESS_CATEGORIES = ['아이테오 드레스', '루아 드레스', '이로스타일 드레스'];
+const DRESS_CATEGORIES = ['아이테오 드레스', '루아 드레스'];
 let unsubscribeContracts = null;
 let unsubscribePayments = null;
 let unsubscribeDresses = null;
@@ -144,7 +144,7 @@ function renderReservations() {
   $('reservationRows').innerHTML = data.map((reservation) => `
     <tr>
       <td><b>${esc(reservation.date)}</b><br>${esc(reservation.time)}<small>${esc(reservation.id)}</small></td>
-      <td>${esc(reservation.name)}<br><a href="tel:${esc(reservation.phone)}">${esc(reservation.phone)}</a>${reservation.memo ? `<small>${esc(reservation.memo)}</small>` : ''}</td>
+      <td>${esc(reservation.name)}<br><span class="phone-text">${esc(reservation.phone)}</span>${reservation.memo ? `<small>${esc(reservation.memo)}</small>` : ''}</td>
       <td>${esc(reservation.purpose)}</td>
       <td>${esc(reservation.weddingDate || '-')}</td>
       <td>
@@ -323,7 +323,7 @@ function showCustomerDetail(customer) {
         <div>
           <p class="eyebrow">CUSTOMER PROFILE</p>
           <h2>${esc(customer.name || '고객')}</h2>
-          <a href="tel:${esc(customer.phone)}">${esc(customer.phone)}</a>
+          <span class="phone-text">${esc(customer.phone)}</span>
         </div>
         <span class="crm-stage">${esc(customer.stage || '신규')}</span>
       </div>
@@ -516,107 +516,314 @@ function paymentForm(item={}){return `<form class="ops-form"><p class="eyebrow">
 async function savePayment(e){e.preventDefault();const d=new FormData(e.target);const customer=customerById(d.get('customerId'));const item={id:d.get('id')||makeDocId('PM'),customerId:d.get('customerId'),customerName:customer.name||'',phone:customer.phone||'',type:d.get('type'),paidDate:d.get('paidDate'),amount:Number(d.get('amount')||0),method:d.get('method'),contractId:d.get('contractId'),memo:d.get('memo').trim(),updatedAt:new Date().toISOString()};await LuaDataService.saveCollectionDoc('payments',item);showToast('<b>결제정보가 저장되었습니다.</b>');closeOpsModal();}
 function renderPayments(){const q=($('paymentSearch')?.value||'').toLowerCase();const method=$('paymentMethodFilter')?.value||'';const list=paymentsData.filter(x=>(!method||x.method===method)&&(!q||[x.customerName,x.phone,x.memo].some(v=>String(v||'').toLowerCase().includes(q))));const totalContract=contractsData.filter(x=>x.status!=='해지').reduce((s,x)=>s+Number(x.totalAmount||0),0);const paid=paymentsData.reduce((s,x)=>s+(x.type==='환불'?-Number(x.amount||0):Number(x.amount||0)),0);$('paymentTotal').textContent=money(totalContract);$('paidTotal').textContent=money(paid);$('balanceTotal').textContent=money(Math.max(totalContract-paid,0));const paidByCustomer={};paymentsData.forEach(x=>paidByCustomer[x.customerId]=(paidByCustomer[x.customerId]||0)+(x.type==='환불'?-x.amount:x.amount));$('unpaidCount').textContent=contractsData.filter(c=>c.status!=='해지'&&Number(c.totalAmount||0)>(paidByCustomer[c.customerId]||0)).length;$('paymentList').innerHTML=list.map(x=>`<article class="ops-card"><div><span class="status-chip">${esc(x.type)}</span><h3>${esc(x.customerName)}</h3><p>${esc(x.paidDate)} · ${esc(x.method)}</p><p>${esc(x.memo||'')}</p></div><div class="ops-card-side"><b>${money(x.amount)}</b><button class="secondary small edit-payment" data-id="${esc(x.id)}">수정</button><button class="danger-link remove-payment" data-id="${esc(x.id)}">삭제</button></div></article>`).join('')||'<div class="empty">결제 기록이 없습니다.</div>';document.querySelectorAll('.edit-payment').forEach(b=>b.onclick=()=>openOpsModal(paymentForm(paymentsData.find(x=>x.id===b.dataset.id)),savePayment));document.querySelectorAll('.remove-payment').forEach(b=>b.onclick=async()=>{if(confirm('결제 기록을 삭제할까요?'))await LuaDataService.removeCollectionDoc('payments',b.dataset.id)});}
 
+
+let luaStorageReadyPromise = null;
+
+function ensureFirebaseStorage() {
+  if (window.firebase?.storage) return Promise.resolve(firebase.storage());
+
+  if (!luaStorageReadyPromise) {
+    luaStorageReadyPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js';
+      script.onload = () => {
+        try {
+          resolve(firebase.storage());
+        } catch (error) {
+          reject(error);
+        }
+      };
+      script.onerror = () => reject(new Error('Firebase Storage SDK를 불러오지 못했습니다.'));
+      document.head.appendChild(script);
+    });
+  }
+
+  return luaStorageReadyPromise;
+}
+
+function previewDressImage(input) {
+  const preview = document.getElementById('dressImagePreview');
+  const file = input.files?.[0];
+
+  if (!preview || !file) return;
+
+  if (!file.type.startsWith('image/')) {
+    input.value = '';
+    showToast('<b>이미지 파일만 선택할 수 있습니다.</b>', 'error');
+    return;
+  }
+
+  if (file.size > 8 * 1024 * 1024) {
+    input.value = '';
+    showToast('<b>드레스 사진은 8MB 이하로 선택해 주세요.</b>', 'error');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    preview.src = reader.result;
+    preview.hidden = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadDressImage(file, dressId) {
+  if (!file) return '';
+
+  const storage = await ensureFirebaseStorage();
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `dresses/${dressId}/${Date.now()}-${safeName}`;
+  const ref = storage.ref().child(path);
+
+  const snapshot = await ref.put(file, {
+    contentType: file.type,
+    customMetadata: { dressId }
+  });
+
+  return snapshot.ref.getDownloadURL();
+}
+
 function dressForm(item={}) {
-  return `<form class="ops-form">
+  const currentImage = item.photoUrl || '';
+
+  return `<form class="ops-form" id="dressForm">
     <p class="eyebrow">DRESS</p>
-    <h2>드레스 정보</h2>
-    <input type="hidden" name="id" value="${esc(item.id||'')}">
+    <h2>${item.id ? '드레스 수정' : '새 드레스 등록'}</h2>
+
+    <input type="hidden" name="id" value="${esc(item.id || '')}">
+    <input type="hidden" name="photoUrl" value="${esc(currentImage)}">
+
+    <div class="dress-image-editor">
+      <div class="dress-image-preview-wrap">
+        <img
+          id="dressImagePreview"
+          class="dress-image-preview"
+          src="${esc(currentImage)}"
+          alt="드레스 사진 미리보기"
+          ${currentImage ? '' : 'hidden'}>
+        <div class="dress-image-placeholder" ${currentImage ? 'hidden' : ''}>
+          드레스 사진
+        </div>
+      </div>
+
+      <label class="dress-file-label">
+        사진 선택
+        <input
+          type="file"
+          name="photoFile"
+          accept="image/jpeg,image/png,image/webp"
+          onchange="previewDressImage(this)">
+        <small>JPG·PNG·WEBP, 최대 8MB</small>
+      </label>
+    </div>
+
     <div class="crm-grid">
-      <label>드레스 분류
+      <label>드레스 목록
         <select name="category" required>
           <option value="">선택</option>
           ${DRESS_CATEGORIES.map((category) =>
-            `<option ${item.category===category?'selected':''}>${category}</option>`
+            `<option ${item.category === category ? 'selected' : ''}>${category}</option>`
           ).join('')}
         </select>
       </label>
-      <label>품번<input name="code" value="${esc(item.code||'')}" required></label>
-      <label>드레스명<input name="name" value="${esc(item.name||'')}" required></label>
-      <label>브랜드<input name="brand" value="${esc(item.brand||'')}"></label>
-      <label>사이즈<input name="size" value="${esc(item.size||'')}"></label>
-      <label>색상<input name="color" value="${esc(item.color||'Ivory')}"></label>
+
+      <label>품번
+        <input name="code" value="${esc(item.code || '')}" required>
+      </label>
+
+      <label>드레스명
+        <input name="name" value="${esc(item.name || '')}" required>
+      </label>
+
+      <label>브랜드
+        <input name="brand" value="${esc(item.brand || '')}">
+      </label>
+
+      <label>사이즈
+        <input name="size" value="${esc(item.size || '')}">
+      </label>
+
+      <label>색상
+        <input name="color" value="${esc(item.color || 'Ivory')}" placeholder="Ivory, Pink, Blue 등">
+      </label>
+
       <label>상태
         <select name="status">
           ${['피팅 가능','예약됨','대여 중','세탁 중','수선 중','보관 중'].map((status) =>
-            `<option ${item.status===status?'selected':''}>${status}</option>`
+            `<option ${item.status === status ? 'selected' : ''}>${status}</option>`
           ).join('')}
         </select>
       </label>
-      <label>착용횟수<input type="number" name="wearCount" min="0" value="${esc(item.wearCount||0)}"></label>
+
+      <label>착용횟수
+        <input type="number" name="wearCount" min="0" value="${esc(item.wearCount || 0)}">
+      </label>
+
       <label>연결 고객
         <select name="customerId">
           <option value="">없음</option>
           ${customerOptions(item.customerId)}
         </select>
       </label>
-      <label class="crm-wide">메모<textarea name="memo" rows="4">${esc(item.memo||'')}</textarea></label>
+
+      <label class="crm-wide">메모
+        <textarea name="memo" rows="4">${esc(item.memo || '')}</textarea>
+      </label>
     </div>
+
     <button class="primary" type="submit">저장</button>
   </form>`;
 }
 async function saveDress(e) {
   e.preventDefault();
-  const d = new FormData(e.target);
-  const customer = customerById(d.get('customerId'));
-  const item = {
-    id: d.get('id') || makeDocId('DR'),
-    category: d.get('category'),
-    code: d.get('code').trim(),
-    name: d.get('name').trim(),
-    brand: d.get('brand').trim(),
-    size: d.get('size').trim(),
-    color: d.get('color').trim(),
-    status: d.get('status'),
-    wearCount: Number(d.get('wearCount') || 0),
-    customerId: d.get('customerId'),
-    customerName: customer.name || '',
-    phone: customer.phone || '',
-    memo: d.get('memo').trim(),
-    updatedAt: new Date().toISOString()
-  };
-  await LuaDataService.saveCollectionDoc('dresses', item);
-  showToast('<b>드레스 정보가 저장되었습니다.</b>');
-  closeOpsModal();
+
+  const form = e.target;
+  const submit = form.querySelector('button[type="submit"]');
+  const data = new FormData(form);
+  const customer = customerById(data.get('customerId'));
+  const id = data.get('id') || makeDocId('DR');
+  const photoFile = form.querySelector('input[name="photoFile"]')?.files?.[0];
+
+  submit.disabled = true;
+  submit.textContent = photoFile ? '사진 업로드 중...' : '저장 중...';
+
+  try {
+    let photoUrl = data.get('photoUrl') || '';
+
+    if (photoFile) {
+      photoUrl = await uploadDressImage(photoFile, id);
+    }
+
+    const item = {
+      id,
+      category: data.get('category'),
+      code: data.get('code').trim(),
+      name: data.get('name').trim(),
+      brand: data.get('brand').trim(),
+      size: data.get('size').trim(),
+      color: data.get('color').trim(),
+      status: data.get('status'),
+      wearCount: Number(data.get('wearCount') || 0),
+      customerId: data.get('customerId'),
+      customerName: customer.name || '',
+      phone: customer.phone || '',
+      photoUrl,
+      memo: data.get('memo').trim(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await LuaDataService.saveCollectionDoc('dresses', item);
+    showToast('<b>드레스 정보와 사진이 저장되었습니다.</b>');
+    closeOpsModal();
+  } catch (error) {
+    console.error('Dress save error:', error);
+    showToast(`<b>드레스 저장 실패</b><br>${esc(error.code || error.message || '알 수 없는 오류')}`, 'error');
+  } finally {
+    submit.disabled = false;
+    submit.textContent = '저장';
+  }
 }
-function renderDresses(){const q=($('dressSearch')?.value||'').toLowerCase();const st=$('dressStatusFilter')?.value||'';const list=dressesData.filter(x=>(!st||x.status===st)&&(!q||[x.code,x.name,x.brand].some(v=>String(v||'').toLowerCase().includes(q))));$('dressCount').textContent=dressesData.length;$('dressAvailableCount').textContent=dressesData.filter(x=>x.status==='피팅 가능').length;$('dressBookedCount').textContent=dressesData.filter(x=>['예약됨','대여 중'].includes(x.status)).length;$('dressCareCount').textContent=dressesData.filter(x=>['세탁 중','수선 중'].includes(x.status)).length;$('dressList').innerHTML=list.map(x=>`<article class="dress-card"><span class="status-chip">${esc(x.status)}</span><h3>${esc(x.name)}</h3><p>${esc(x.code)} · ${esc(x.brand||'-')}</p><dl><dt>사이즈</dt><dd>${esc(x.size||'-')}</dd><dt>착용횟수</dt><dd>${x.wearCount||0}회</dd><dt>고객</dt><dd>${esc(x.customerName||'-')}</dd></dl><div><button class="secondary small edit-dress" data-id="${esc(x.id)}">수정</button><button class="danger-link remove-dress" data-id="${esc(x.id)}">삭제</button></div></article>`).join('')||'<div class="empty">등록된 드레스가 없습니다.</div>';document.querySelectorAll('.edit-dress').forEach(b=>b.onclick=()=>openOpsModal(dressForm(dressesData.find(x=>x.id===b.dataset.id)),saveDress));document.querySelectorAll('.remove-dress').forEach(b=>b.onclick=async()=>{if(confirm('드레스를 삭제할까요?'))await LuaDataService.removeCollectionDoc('dresses',b.dataset.id)});}
+function renderDresses() {
+  const query = ($('dressSearch')?.value || '').toLowerCase();
+  const status = $('dressStatusFilter')?.value || '';
 
-function renderSchedule(){
-  const date=$('scheduleDate').value||new Date().toISOString().slice(0,10);
-  $('scheduleDate').value=date;
+  const normalized = dressesData.map((dress) => ({
+    ...dress,
+    category: DRESS_CATEGORIES.includes(dress.category)
+      ? dress.category
+      : '루아 드레스'
+  }));
 
-  const reservationItems=allData
-    .filter(x=>x.date===date&&x.status!=='취소')
-    .map(x=>({
-      key:`${customerIdFromPhone(x.phone)}-${x.date}-${x.time}`,
-      customerId:customerIdFromPhone(x.phone),
-      time:x.time||'',
-      name:x.name||'',
-      phone:x.phone||'',
-      purpose:x.purpose||'예약',
-      memo:x.memo||'',
-      status:x.status||'신청',
-      source:'예약'
-    }));
+  const filtered = normalized.filter((dress) =>
+    (!status || dress.status === status) &&
+    (!query || [
+      dress.code,
+      dress.name,
+      dress.brand,
+      dress.category,
+      dress.color,
+      dress.customerName
+    ].some((value) => String(value || '').toLowerCase().includes(query)))
+  );
 
-  const existingKeys=new Set(reservationItems.map(x=>x.key));
-  const customerItems=mergedCustomers()
-    .filter(c=>c.fittingDate===date&&c.fittingTime)
-    .map(c=>({
-      key:`${c.id}-${c.fittingDate}-${c.fittingTime}`,
-      customerId:c.id,
-      time:c.fittingTime||'',
-      name:c.name||'',
-      phone:c.phone||'',
-      purpose:c.fittingPurpose||'드레스 피팅',
-      memo:[c.selectedDress?`드레스: ${c.selectedDress}`:'',c.tiara?`티아라: ${c.tiara}`:'',c.veil?`베일: ${c.veil}`:''].filter(Boolean).join(' · '),
-      status:'고객관리',
-      source:'고객관리'
-    }))
-    .filter(x=>!existingKeys.has(x.key));
+  $('dressCount').textContent = normalized.length;
+  $('dressAvailableCount').textContent =
+    normalized.filter((dress) => dress.status === '피팅 가능').length;
+  $('dressBookedCount').textContent =
+    normalized.filter((dress) => ['예약됨', '대여 중'].includes(dress.status)).length;
+  $('dressCareCount').textContent =
+    normalized.filter((dress) => ['세탁 중', '수선 중'].includes(dress.status)).length;
 
-  const list=[...reservationItems,...customerItems].sort((a,b)=>String(a.time).localeCompare(String(b.time)));
-  $('scheduleBoard').innerHTML=list.map(x=>`<article class="schedule-item"><time>${esc(x.time)}</time><div><h3><button type="button" class="fitting-customer-link" data-customer-id="${esc(x.customerId||'')}" data-phone="${esc(x.phone||'')}">${esc(x.name||'고객')}</button></h3><p>${esc(x.phone)} · ${esc(x.purpose)}</p><small>${esc(x.memo||'')}</small></div><span class="status-chip">${esc(x.source)}</span></article>`).join('')||'<div class="empty">선택한 날짜의 피팅 일정이 없습니다.</div>';
-  bindFittingCustomerLinks();
+  $('dressList').innerHTML = DRESS_CATEGORIES.map((category) => {
+    const categoryItems = filtered.filter((dress) => dress.category === category);
+
+    return `
+      <section class="dress-admin-group">
+        <div class="dress-admin-group-head">
+          <div>
+            <p class="eyebrow">DRESS LIST</p>
+            <h3>${esc(category)}</h3>
+          </div>
+          <span>${categoryItems.length}벌</span>
+        </div>
+
+        <div class="dress-admin-grid">
+          ${
+            categoryItems.length
+              ? categoryItems.map((dress) => `
+              <article class="dress-card dress-card-with-image">
+                <div class="dress-thumb-wrap">
+                  ${
+                    dress.photoUrl
+                      ? `<img class="dress-thumb" src="${esc(dress.photoUrl)}" alt="${esc(dress.name)}" loading="lazy">`
+                      : `<div class="dress-thumb-empty">NO IMAGE</div>`
+                  }
+                </div>
+
+                <div class="dress-card-body">
+                  <div class="dress-card-topline">
+                    <span class="status-chip">${esc(dress.status)}</span>
+                    <span class="dress-category-chip">${esc(dress.category)}</span>
+                  </div>
+
+                  <h3>${esc(dress.name)}</h3>
+                  <p>${esc(dress.code)} · ${esc(dress.brand || '-')}</p>
+
+                  <dl>
+                    <dt>사이즈</dt><dd>${esc(dress.size || '-')}</dd>
+                    <dt>색상</dt><dd>${esc(dress.color || '-')}</dd>
+                    <dt>착용횟수</dt><dd>${dress.wearCount || 0}회</dd>
+                    <dt>고객</dt><dd>${esc(dress.customerName || '-')}</dd>
+                  </dl>
+
+                  <div class="dress-card-actions">
+                    <button class="secondary small edit-dress" data-id="${esc(dress.id)}">수정</button>
+                    <button class="danger-link remove-dress" data-id="${esc(dress.id)}">삭제</button>
+                  </div>
+                </div>
+              </article>
+            `).join('')
+            : '<div class="empty dress-list-empty">등록된 드레스가 없습니다.</div>'
+          }
+        </div>
+      </section>
+    `;
+  }).join('');
+
+  document.querySelectorAll('.edit-dress').forEach((button) => {
+    button.onclick = () => openOpsModal(
+      dressForm(dressesData.find((dress) => dress.id === button.dataset.id)),
+      saveDress
+    );
+  });
+
+  document.querySelectorAll('.remove-dress').forEach((button) => {
+    button.onclick = async () => {
+      if (confirm('드레스를 삭제할까요?')) {
+        await LuaDataService.removeCollectionDoc('dresses', button.dataset.id);
+      }
+    };
+  });
 }
 
 $('newContractBtn').onclick=()=>openOpsModal(contractForm(),saveContract);
