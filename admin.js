@@ -10,6 +10,15 @@ const DRESS_CATEGORIES = ['아이테오 드레스', '루아 드레스'];
 let unsubscribeContracts = null;
 let unsubscribePayments = null;
 let unsubscribeDresses = null;
+  unsubscribeIroDresses = null;
+  unsubscribeIroShoes = null;
+  unsubscribeHanbok = null;
+let iroDressesData = [];
+let iroShoesData = [];
+let hanbokData = [];
+let unsubscribeIroDresses = null;
+let unsubscribeIroShoes = null;
+let unsubscribeHanbok = null;
 
 const $ = (id) => document.getElementById(id);
 const esc = (value = '') => String(value).replace(/[&<>'"]/g, (char) => ({
@@ -67,6 +76,9 @@ function showApp(user) {
   if (!unsubscribeContracts) unsubscribeContracts = LuaDataService.subscribeCollection('contracts', (data) => { contractsData = data; renderContracts(); }, showError);
   if (!unsubscribePayments) unsubscribePayments = LuaDataService.subscribeCollection('payments', (data) => { paymentsData = data; renderPayments(); }, showError);
   if (!unsubscribeDresses) unsubscribeDresses = LuaDataService.subscribeCollection('dresses', (data) => { dressesData = data; renderDresses(); }, showError);
+  if (!unsubscribeIroDresses) unsubscribeIroDresses = LuaDataService.subscribeCollection('iroDresses', (data) => { iroDressesData = data; renderIroStyle(); }, showError);
+  if (!unsubscribeIroShoes) unsubscribeIroShoes = LuaDataService.subscribeCollection('iroShoes', (data) => { iroShoesData = data; renderIroStyle(); }, showError);
+  if (!unsubscribeHanbok) unsubscribeHanbok = LuaDataService.subscribeCollection('hanbok', (data) => { hanbokData = data; renderHanbok(); }, showError);
 }
 
 function showLogin() {
@@ -78,6 +90,9 @@ function showLogin() {
   if (unsubscribeContracts) unsubscribeContracts();
   if (unsubscribePayments) unsubscribePayments();
   if (unsubscribeDresses) unsubscribeDresses();
+  if (unsubscribeIroDresses) unsubscribeIroDresses();
+  if (unsubscribeIroShoes) unsubscribeIroShoes();
+  if (unsubscribeHanbok) unsubscribeHanbok();
   unsubscribeReservations = null;
   unsubscribeCustomers = null;
   unsubscribeContracts = null;
@@ -119,6 +134,8 @@ document.querySelectorAll('.admin-tab').forEach((button) => {
     document.querySelectorAll('.admin-tab').forEach((item) => item.classList.toggle('active', item === button));
     document.querySelectorAll('.admin-tab-panel').forEach((panel) => setVisible(panel, panel.id === `${button.dataset.tab}Tab`));
     if (button.dataset.tab === 'schedule') renderSchedule();
+    if (button.dataset.tab === 'irostyle') renderIroStyle();
+    if (button.dataset.tab === 'hanbok') renderHanbok();
   };
 });
 
@@ -144,7 +161,11 @@ function renderReservations() {
   $('reservationRows').innerHTML = data.map((reservation) => `
     <tr>
       <td><b>${esc(reservation.date)}</b><br>${esc(reservation.time)}<small>${esc(reservation.id)}</small></td>
-      <td>${esc(reservation.name)}<br><span class="phone-text">${esc(reservation.phone)}</span>${reservation.memo ? `<small>${esc(reservation.memo)}</small>` : ''}</td>
+      <td>
+        <button type="button" class="reservation-name-link" data-id="${esc(reservation.id)}">${esc(reservation.name)}</button>
+        <br><span class="phone-text">${esc(reservation.phone)}</span>
+        ${reservation.memo ? `<small>${esc(reservation.memo)}</small>` : ''}
+      </td>
       <td>${esc(reservation.purpose)}</td>
       <td>${esc(reservation.weddingDate || '-')}</td>
       <td>
@@ -180,8 +201,54 @@ function renderReservations() {
   document.querySelectorAll('.open-customer').forEach((element) => {
     element.onclick = () => openCustomerByPhone(element.dataset.phone);
   });
+  document.querySelectorAll('.reservation-name-link').forEach((element) => {
+    element.onclick = () => showReservationDetail(element.dataset.id);
+  });
 
   updateReservationStats();
+}
+
+
+function showReservationDetail(id) {
+  const reservation = allData.find((item) => item.id === id);
+  if (!reservation) return;
+
+  const html = `
+    <section class="reservation-detail-modal">
+      <p class="eyebrow">RESERVATION DETAIL</p>
+      <h2>${esc(reservation.name || '예약자')} 예약정보</h2>
+
+      <div class="detail-grid">
+        <div><span>예약번호</span><b>${esc(reservation.id || '-')}</b></div>
+        <div><span>상태</span><b>${esc(reservation.status || '-')}</b></div>
+        <div><span>예약일</span><b>${esc(reservation.date || '-')}</b></div>
+        <div><span>시간</span><b>${esc(reservation.time || '-')}</b></div>
+        <div><span>예약자</span><b>${esc(reservation.name || '-')}</b></div>
+        <div><span>연락처</span><b class="phone-text">${esc(reservation.phone || '-')}</b></div>
+        <div><span>방문 목적</span><b>${esc(reservation.purpose || '-')}</b></div>
+        <div><span>예식일</span><b>${esc(reservation.weddingDate || '-')}</b></div>
+      </div>
+
+      <div class="detail-memo">
+        <span>요청사항 / 메모</span>
+        <p>${esc(reservation.memo || '기록된 내용이 없습니다.')}</p>
+      </div>
+
+      <div class="detail-actions">
+        <button type="button" class="primary" id="reservationCustomerOpen">고객관리 열기</button>
+        <button type="button" class="secondary" onclick="closeOpsModal()">닫기</button>
+      </div>
+    </section>
+  `;
+
+  openOpsModal(html);
+  const openButton = $('reservationCustomerOpen');
+  if (openButton) {
+    openButton.onclick = () => {
+      closeOpsModal();
+      openCustomerByPhone(reservation.phone || '');
+    };
+  }
 }
 
 function updateReservationStats() {
@@ -767,6 +834,57 @@ async function saveDress(e) {
     submit.textContent = '저장';
   }
 }
+
+function showDressDetail(id) {
+  const dress = dressesData.find((item) => item.id === id);
+  if (!dress) return;
+
+  const html = `
+    <section class="dress-detail-modal">
+      <div class="dress-detail-photo-wrap">
+        ${
+          dress.photoUrl
+            ? `<img class="dress-detail-photo" src="${esc(dress.photoUrl)}" alt="${esc(dress.name || '드레스')}">`
+            : `<div class="dress-detail-no-image">NO IMAGE</div>`
+        }
+      </div>
+
+      <div class="dress-detail-content">
+        <p class="eyebrow">${esc(dress.category || 'DRESS')}</p>
+        <h2>${esc(dress.name || '드레스')}</h2>
+
+        <div class="detail-grid dress-detail-grid">
+          <div><span>품번</span><b>${esc(dress.code || '-')}</b></div>
+          <div><span>브랜드</span><b>${esc(dress.brand || '-')}</b></div>
+          <div><span>목록</span><b>${esc(dress.category || '-')}</b></div>
+          <div><span>상태</span><b>${esc(dress.status || '-')}</b></div>
+          <div><span>사이즈</span><b>${esc(dress.size || '-')}</b></div>
+          <div><span>색상</span><b>${esc(dress.color || '-')}</b></div>
+          <div><span>착용횟수</span><b>${Number(dress.wearCount || 0)}회</b></div>
+          <div><span>연결 고객</span><b>${esc(dress.customerName || '-')}</b></div>
+        </div>
+
+        <div class="detail-memo">
+          <span>메모</span>
+          <p>${esc(dress.memo || '기록된 내용이 없습니다.')}</p>
+        </div>
+
+        <div class="detail-actions">
+          <button type="button" class="primary" id="dressDetailEdit">드레스 수정</button>
+          <button type="button" class="secondary" onclick="closeOpsModal()">닫기</button>
+        </div>
+      </div>
+    </section>
+  `;
+
+  openOpsModal(html);
+
+  const edit = $('dressDetailEdit');
+  if (edit) {
+    edit.onclick = () => openOpsModal(dressForm(dress), saveDress);
+  }
+}
+
 function renderDresses() {
   const query = ($('dressSearch')?.value || '').toLowerCase();
   const status = $('dressStatusFilter')?.value || '';
@@ -815,8 +933,8 @@ function renderDresses() {
           ${
             categoryItems.length
               ? categoryItems.map((dress) => `
-              <article class="dress-card dress-card-with-image">
-                <div class="dress-thumb-wrap">
+              <article class="dress-card dress-card-with-image dress-detail-trigger" data-id="${esc(dress.id)}">
+                <div class="dress-thumb-wrap dress-thumb-large">
                   ${
                     dress.photoUrl
                       ? `<img class="dress-thumb" src="${esc(dress.photoUrl)}" alt="${esc(dress.name)}" loading="lazy">`
@@ -841,8 +959,8 @@ function renderDresses() {
                   </dl>
 
                   <div class="dress-card-actions">
-                    <button class="secondary small edit-dress" data-id="${esc(dress.id)}">수정</button>
-                    <button class="danger-link remove-dress" data-id="${esc(dress.id)}">삭제</button>
+                    <button class="secondary small edit-dress" data-id="${esc(dress.id)}" onclick="event.stopPropagation()">수정</button>
+                    <button class="danger-link remove-dress" data-id="${esc(dress.id)}" onclick="event.stopPropagation()">삭제</button>
                   </div>
                 </div>
               </article>
@@ -853,6 +971,13 @@ function renderDresses() {
       </section>
     `;
   }).join('');
+
+  document.querySelectorAll('.dress-detail-trigger').forEach((card) => {
+    card.onclick = (event) => {
+      if (event.target.closest('.edit-dress') || event.target.closest('.remove-dress')) return;
+      showDressDetail(card.dataset.id);
+    };
+  });
 
   document.querySelectorAll('.edit-dress').forEach((button) => {
     button.onclick = () => openOpsModal(
@@ -870,13 +995,235 @@ function renderDresses() {
   });
 }
 
+function renderSchedule(){
+  const date=$('scheduleDate').value||new Date().toISOString().slice(0,10);
+  $('scheduleDate').value=date;
+
+  const reservationItems=allData
+    .filter(x=>x.date===date&&x.status!=='취소')
+    .map(x=>({
+      key:`${customerIdFromPhone(x.phone)}-${x.date}-${x.time}`,
+      time:x.time||'',
+      name:x.name||'',
+      phone:x.phone||'',
+      purpose:x.purpose||'예약',
+      memo:x.memo||'',
+      status:x.status||'신청',
+      source:'예약'
+    }));
+
+  const existingKeys=new Set(reservationItems.map(x=>x.key));
+  const customerItems=mergedCustomers()
+    .filter(c=>c.fittingDate===date&&c.fittingTime)
+    .map(c=>({
+      key:`${c.id}-${c.fittingDate}-${c.fittingTime}`,
+      time:c.fittingTime||'',
+      name:c.name||'',
+      phone:c.phone||'',
+      purpose:c.fittingPurpose||'드레스 피팅',
+      memo:[c.selectedDress?`드레스: ${c.selectedDress}`:'',c.tiara?`티아라: ${c.tiara}`:'',c.veil?`베일: ${c.veil}`:''].filter(Boolean).join(' · '),
+      status:'고객관리',
+      source:'고객관리'
+    }))
+    .filter(x=>!existingKeys.has(x.key));
+
+  const list=[...reservationItems,...customerItems].sort((a,b)=>String(a.time).localeCompare(String(b.time)));
+  $('scheduleBoard').innerHTML=list.map(x=>`<article class="schedule-item"><time>${esc(x.time)}</time><div><h3><button type="button" class="fitting-customer-link" data-customer-id="${esc(x.customerId||'')}" data-phone="${esc(x.phone||'')}">${esc(x.name)}</button></h3><p>${esc(x.phone)} · ${esc(x.purpose)}</p><small>${esc(x.memo||'')}</small></div><span class="status-chip">${esc(x.source)}</span></article>`).join('')||'<div class="empty">선택한 날짜의 피팅 일정이 없습니다.</div>';
+}
+
 $('newContractBtn').onclick=()=>openOpsModal(contractForm(),saveContract);
 $('newPaymentBtn').onclick=()=>openOpsModal(paymentForm(),savePayment);
 $('newDressBtn').onclick=()=>openOpsModal(dressForm(),saveDress);
+$('newIroDressBtn').onclick=()=>openOpsModal(simpleAssetForm('이로스타일 드레스 추가'),(event)=>saveIroAsset(event,'iroDresses','IRD'));
+$('newIroShoesBtn').onclick=()=>openOpsModal(simpleAssetForm('이로스타일 슈즈 추가'),(event)=>saveIroAsset(event,'iroShoes','IRS'));
+$('newHanbokBtn').onclick=()=>openOpsModal(hanbokForm(),saveHanbok);
 ['contractSearch','contractStatusFilter'].forEach(id=>$(id).addEventListener('input',renderContracts));
 ['paymentSearch','paymentMethodFilter'].forEach(id=>$(id).addEventListener('input',renderPayments));
 ['dressSearch','dressStatusFilter'].forEach(id=>$(id).addEventListener('input',renderDresses));
 $('scheduleDate').addEventListener('input',renderSchedule);
+
+
+const IRO_STATUS = ['사용 가능','예약됨','대여 중','관리 중','보관 중'];
+const HANBOK_TYPES = ['신부','신랑','혼주','기타'];
+
+function simpleAssetForm(title, item = {}, kind = 'dress') {
+  const statusOptions = IRO_STATUS.map((status) =>
+    `<option ${item.status === status ? 'selected' : ''}>${status}</option>`
+  ).join('');
+
+  return `<form class="ops-form">
+    <p class="eyebrow">IRO STYLE</p>
+    <h2>${title}</h2>
+    <input type="hidden" name="id" value="${esc(item.id || '')}">
+    <div class="crm-grid">
+      <label>제품명<input name="name" value="${esc(item.name || '')}" required></label>
+      <label>제품번호<input name="code" value="${esc(item.code || '')}"></label>
+      <label>상태<select name="status">${statusOptions}</select></label>
+      <label>연결 고객
+        <select name="customerId">
+          <option value="">없음</option>
+          ${customerOptions(item.customerId)}
+        </select>
+      </label>
+      <label class="crm-wide">메모<textarea name="memo" rows="5">${esc(item.memo || '')}</textarea></label>
+    </div>
+    <button class="primary" type="submit">저장</button>
+  </form>`;
+}
+
+async function saveIroAsset(event, collection, prefix) {
+  event.preventDefault();
+  const data = new FormData(event.target);
+  const customer = customerById(data.get('customerId'));
+
+  const item = {
+    id: data.get('id') || makeDocId(prefix),
+    name: data.get('name').trim(),
+    code: data.get('code').trim(),
+    status: data.get('status'),
+    customerId: data.get('customerId'),
+    customerName: customer.name || '',
+    phone: customer.phone || '',
+    memo: data.get('memo').trim(),
+    updatedAt: new Date().toISOString()
+  };
+
+  await LuaDataService.saveCollectionDoc(collection, item);
+  showToast('<b>이로스타일 정보가 저장되었습니다.</b>');
+  closeOpsModal();
+}
+
+function renderIroList(containerId, data, collection, prefix, label) {
+  const container = $(containerId);
+  if (!container) return;
+
+  container.innerHTML = data.map((item) => `
+    <article class="mini-asset-card">
+      <div>
+        <span class="status-chip">${esc(item.status || '-')}</span>
+        <h3>${esc(item.name || '-')}</h3>
+        <p>${esc(item.code || '')}</p>
+        <small>${esc(item.customerName || '연결 고객 없음')}</small>
+      </div>
+      <div class="mini-asset-actions">
+        <button class="secondary small iro-edit" data-id="${esc(item.id)}">수정</button>
+        <button class="danger-link iro-remove" data-id="${esc(item.id)}">삭제</button>
+      </div>
+    </article>
+  `).join('') || '<div class="empty">등록된 항목이 없습니다.</div>';
+
+  container.querySelectorAll('.iro-edit').forEach((button) => {
+    button.onclick = () => {
+      const item = data.find((row) => row.id === button.dataset.id);
+      openOpsModal(
+        simpleAssetForm(`${label} 정보`, item),
+        (event) => saveIroAsset(event, collection, prefix)
+      );
+    };
+  });
+
+  container.querySelectorAll('.iro-remove').forEach((button) => {
+    button.onclick = async () => {
+      if (confirm('이 항목을 삭제할까요?')) {
+        await LuaDataService.removeCollectionDoc(collection, button.dataset.id);
+      }
+    };
+  });
+}
+
+function renderIroStyle() {
+  renderIroList('iroDressList', iroDressesData, 'iroDresses', 'IRD', '이로스타일 드레스');
+  renderIroList('iroShoesList', iroShoesData, 'iroShoes', 'IRS', '이로스타일 슈즈');
+}
+
+function hanbokForm(item = {}) {
+  return `<form class="ops-form">
+    <p class="eyebrow">BOMNAL HANBOK</p>
+    <h2>봄날한복 정보</h2>
+    <input type="hidden" name="id" value="${esc(item.id || '')}">
+    <div class="crm-grid">
+      <label>제품명<input name="name" value="${esc(item.name || '')}" required></label>
+      <label>제품번호<input name="code" value="${esc(item.code || '')}"></label>
+      <label>구분
+        <select name="type">
+          ${HANBOK_TYPES.map((type) => `<option ${item.type === type ? 'selected' : ''}>${type}</option>`).join('')}
+        </select>
+      </label>
+      <label>상태
+        <select name="status">
+          ${IRO_STATUS.map((status) => `<option ${item.status === status ? 'selected' : ''}>${status}</option>`).join('')}
+        </select>
+      </label>
+      <label>연결 고객
+        <select name="customerId">
+          <option value="">없음</option>
+          ${customerOptions(item.customerId)}
+        </select>
+      </label>
+      <label class="crm-wide">메모<textarea name="memo" rows="5">${esc(item.memo || '')}</textarea></label>
+    </div>
+    <button class="primary" type="submit">저장</button>
+  </form>`;
+}
+
+async function saveHanbok(event) {
+  event.preventDefault();
+  const data = new FormData(event.target);
+  const customer = customerById(data.get('customerId'));
+
+  const item = {
+    id: data.get('id') || makeDocId('HB'),
+    name: data.get('name').trim(),
+    code: data.get('code').trim(),
+    type: data.get('type'),
+    status: data.get('status'),
+    customerId: data.get('customerId'),
+    customerName: customer.name || '',
+    phone: customer.phone || '',
+    memo: data.get('memo').trim(),
+    updatedAt: new Date().toISOString()
+  };
+
+  await LuaDataService.saveCollectionDoc('hanbok', item);
+  showToast('<b>봄날한복 정보가 저장되었습니다.</b>');
+  closeOpsModal();
+}
+
+function renderHanbok() {
+  const container = $('hanbokList');
+  if (!container) return;
+
+  container.innerHTML = hanbokData.map((item) => `
+    <article class="mini-asset-card">
+      <div>
+        <span class="status-chip">${esc(item.status || '-')}</span>
+        <h3>${esc(item.name || '-')}</h3>
+        <p>${esc(item.type || '-')} · ${esc(item.code || '')}</p>
+        <small>${esc(item.customerName || '연결 고객 없음')}</small>
+      </div>
+      <div class="mini-asset-actions">
+        <button class="secondary small hanbok-edit" data-id="${esc(item.id)}">수정</button>
+        <button class="danger-link hanbok-remove" data-id="${esc(item.id)}">삭제</button>
+      </div>
+    </article>
+  `).join('') || '<div class="empty">등록된 한복이 없습니다.</div>';
+
+  container.querySelectorAll('.hanbok-edit').forEach((button) => {
+    button.onclick = () => openOpsModal(
+      hanbokForm(hanbokData.find((item) => item.id === button.dataset.id)),
+      saveHanbok
+    );
+  });
+
+  container.querySelectorAll('.hanbok-remove').forEach((button) => {
+    button.onclick = async () => {
+      if (confirm('이 한복 정보를 삭제할까요?')) {
+        await LuaDataService.removeCollectionDoc('hanbok', button.dataset.id);
+      }
+    };
+  });
+}
+
 
 LuaAuthService.onChange((user) => user ? showApp(user) : showLogin());
 function openCustomerFromFitting(customerId, phone) {

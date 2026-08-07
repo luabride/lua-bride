@@ -705,3 +705,183 @@ header nav a{
     align-items:flex-start
   }
 }
+
+
+/* Reservation detail */
+.reservation-name-link{
+  border:0;
+  padding:0;
+  background:transparent;
+  color:#7d5d29;
+  font:inherit;
+  font-weight:700;
+  text-decoration:underline;
+  text-underline-offset:3px;
+  cursor:pointer
+}
+.reservation-name-link:hover{color:#2f261b}
+
+.reservation-detail-modal{
+  width:min(760px,92vw)
+}
+.detail-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+  margin:24px 0
+}
+.detail-grid>div{
+  padding:14px;
+  border:1px solid #e6ddd0;
+  background:#fbf8f3
+}
+.detail-grid span,
+.detail-memo>span{
+  display:block;
+  margin-bottom:6px;
+  color:#8a7e70;
+  font-size:11px
+}
+.detail-grid b{
+  font-size:15px
+}
+.detail-memo{
+  padding:16px;
+  border:1px solid #e6ddd0;
+  background:#fff
+}
+.detail-memo p{margin:0;white-space:pre-wrap;line-height:1.7}
+.detail-actions{
+  display:flex;
+  gap:10px;
+  margin-top:20px;
+  flex-wrap:wrap
+}
+
+/* Dress management 600px thumbnails */
+.dress-admin-grid{
+  grid-template-columns:1fr!important;
+  gap:28px
+}
+.dress-card-with-image{
+  width:min(100%,760px);
+  margin:0 auto;
+  cursor:pointer
+}
+.dress-thumb-wrap.dress-thumb-large{
+  width:min(600px,100%);
+  max-width:600px;
+  aspect-ratio:3/4;
+  margin:24px auto 0;
+  border:1px solid #e5dbce
+}
+.dress-thumb-wrap.dress-thumb-large .dress-thumb{
+  width:100%;
+  height:100%;
+  object-fit:cover
+}
+.dress-detail-trigger:hover{
+  box-shadow:0 18px 38px rgba(57,43,27,.12)
+}
+
+/* Dress detail 1200px */
+.ops-modal-card:has(.dress-detail-modal){
+  width:min(1280px,96vw);
+  max-width:1280px
+}
+.dress-detail-modal{
+  width:100%
+}
+.dress-detail-photo-wrap{
+  width:min(1200px,100%);
+  margin:0 auto 28px;
+  background:#eee8df
+}
+.dress-detail-photo{
+  display:block;
+  width:min(1200px,100%);
+  height:auto;
+  max-height:82vh;
+  object-fit:contain;
+  margin:0 auto
+}
+.dress-detail-no-image{
+  min-height:520px;
+  display:grid;
+  place-items:center;
+  color:#998d7d;
+  letter-spacing:.14em
+}
+.dress-detail-content{
+  max-width:1200px;
+  margin:0 auto
+}
+.dress-detail-grid{
+  grid-template-columns:repeat(4,minmax(0,1fr))
+}
+
+/* IRO STYLE / BOMNAL */
+.two-management-columns{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:24px
+}
+.management-subpanel{
+  border:1px solid #e5dbce;
+  padding:20px;
+  background:#fcfaf7
+}
+.panel-head.compact{
+  margin-bottom:16px
+}
+.panel-head.compact h3{
+  margin:4px 0 0;
+  font-size:24px
+}
+.mini-asset-list{
+  display:grid;
+  gap:12px
+}
+.mini-asset-card{
+  display:flex;
+  justify-content:space-between;
+  gap:18px;
+  padding:16px;
+  border:1px solid #e5dbce;
+  background:#fff
+}
+.mini-asset-card h3{
+  margin:8px 0 4px;
+  font-size:19px
+}
+.mini-asset-card p,
+.mini-asset-card small{
+  margin:0;
+  color:#7e7367
+}
+.mini-asset-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap
+}
+
+@media(max-width:900px){
+  .detail-grid,
+  .dress-detail-grid{
+    grid-template-columns:1fr 1fr
+  }
+  .two-management-columns{
+    grid-template-columns:1fr
+  }
+}
+
+@media(max-width:600px){
+  .detail-grid,
+  .dress-detail-grid{
+    grid-template-columns:1fr
+  }
+  .dress-thumb-wrap.dress-thumb-large{
+    width:100%
+  }
+}
