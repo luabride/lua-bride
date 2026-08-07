@@ -443,7 +443,6 @@ async function saveCustomer(event) {
     showCustomerDetail(
       mergedCustomers().find((item) => item.id === customer.id)
     );
-    renderSchedule();
 
     showToast(
       '<b>고객정보가 수정되었습니다.</b><small>변경사항이 Firebase에 저장되었습니다.</small>',
