@@ -499,14 +499,36 @@ function updateCustomerDressPicker() {
   }
 }
 
-function syncSelectedDressFromFittingList(selectElement) {
+function updateFittingDressPreview(selectElement, index) {
+  const id = selectElement?.value || '';
+  const dress = dressById(id);
+  const preview = document.getElementById(`fittingDressPreview${index}`);
+
+  if (preview) {
+    preview.innerHTML = dress
+      ? `${
+          dress.photoUrl
+            ? `<img src="${esc(dress.photoUrl)}" alt="${esc(dress.name || '')}">`
+            : '<span>사진 없음</span>'
+        }
+        <div class="fitting-preview-meta">
+          <b>${esc(dress.name || '-')}</b>
+          <small>${esc(dress.code || '')}${dress.color ? ` · ${esc(dress.color)}` : ''}</small>
+        </div>`
+      : '<span>드레스를 선택하면 사진이 표시됩니다.</span>';
+  }
+
+  // 피팅 드레스를 선택하면 최종 선택 드레스 후보에도 즉시 반영
   const form = $('customerForm');
-  if (!form) return;
-  const select = form.querySelector('[name="selectedDressId"]');
-  if (select && selectElement?.value) {
-    select.value = selectElement.value;
+  const finalSelect = form?.querySelector('[name="selectedDressId"]');
+  if (finalSelect && id) {
+    finalSelect.value = id;
     updateCustomerDressPicker();
   }
+}
+
+function syncSelectedDressFromFittingList(selectElement, index) {
+  updateFittingDressPreview(selectElement, index);
 }
 
 function showCustomerDetail(customer) {
@@ -584,10 +606,10 @@ function showCustomerDetail(customer) {
         <div class="fitting-dress-select-grid">
           ${fittingIds.map((id, index) => `
             <label>피팅 드레스 ${index + 1}
-              <select name="fittingDress${index + 1}" onchange="syncSelectedDressFromFittingList(this)">
+              <select name="fittingDress${index + 1}" onchange="syncSelectedDressFromFittingList(this, ${index + 1})">
                 ${dressSelectOptions(id)}
               </select>
-              <div class="customer-fitting-dress-preview">
+              <div id="fittingDressPreview${index + 1}" class="customer-fitting-dress-preview">
                 ${
                   dressById(id)?.photoUrl
                     ? `<img src="${esc(dressById(id).photoUrl)}" alt="${esc(dressById(id).name || '')}">`
@@ -684,7 +706,7 @@ async function saveCustomer(event) {
     tiara: accessoryById(data.get('tiaraAccessoryId') || '')?.name || '',
     veilAccessoryId: data.get('veilAccessoryId') || '',
     veil: accessoryById(data.get('veilAccessoryId') || '')?.name || '',
-    memo: data.get('memo').trim(),
+    memo: data.get('memo')?.trim() || '',
     updatedAt: new Date().toISOString()
   };
 
@@ -813,10 +835,129 @@ function closeOpsModal(){ setVisible($('opsModal'),false); $('opsModalBody').inn
 $('opsModalClose').onclick=closeOpsModal;
 $('opsModal').onclick=(e)=>{if(e.target===$('opsModal'))closeOpsModal();};
 
-function contractForm(item={}){
-  return `<form class="ops-form"><p class="eyebrow">CONTRACT</p><h2>${item.id?'계약 수정':'새 계약'}</h2><input type="hidden" name="id" value="${esc(item.id||'')}"><div class="crm-grid"><label>고객<select name="customerId" required><option value="">선택</option>${customerOptions(item.customerId)}</select></label><label>계약 상태<select name="status">${['상담','계약진행','계약완료','해지'].map(x=>`<option ${item.status===x?'selected':''}>${x}</option>`).join('')}</select></label><label>계약일<input type="date" name="contractDate" value="${esc(item.contractDate||'')}"></label><label>총 계약금액<input type="number" name="totalAmount" min="0" value="${esc(item.totalAmount||'')}"></label><label>상품 구성<input name="packageName" value="${esc(item.packageName||'')}" placeholder="본식 드레스 + 촬영 드레스"></label><label>본식일<input type="date" name="weddingDate" value="${esc(item.weddingDate||'')}"></label><label class="crm-wide">계약 메모<textarea name="memo" rows="5">${esc(item.memo||'')}</textarea></label></div><button class="primary" type="submit">저장</button></form>`;
+
+function contractFinancials(contract) {
+  const total = Number(contract?.totalAmount || 0);
+  const deposit = Number(contract?.depositAmount || 0);
+  const balance = Math.max(total - deposit, 0);
+  return { total, deposit, balance };
 }
-async function saveContract(e){e.preventDefault();const d=new FormData(e.target);const customer=customerById(d.get('customerId'));const item={id:d.get('id')||makeDocId('CT'),customerId:d.get('customerId'),customerName:customer.name||'',phone:customer.phone||'',status:d.get('status'),contractDate:d.get('contractDate'),totalAmount:Number(d.get('totalAmount')||0),packageName:d.get('packageName').trim(),weddingDate:d.get('weddingDate'),memo:d.get('memo').trim(),updatedAt:new Date().toISOString()};await LuaDataService.saveCollectionDoc('contracts',item);showToast('<b>계약정보가 저장되었습니다.</b>');closeOpsModal();}
+
+function updateContractBalance() {
+  const form = document.querySelector('#opsModalBody form');
+  if (!form) return;
+
+  const total = Number(form.querySelector('[name="totalAmount"]')?.value || 0);
+  const deposit = Number(form.querySelector('[name="depositAmount"]')?.value || 0);
+  const balance = Math.max(total - deposit, 0);
+
+  const output = form.querySelector('[name="balanceAmount"]');
+  if (output) output.value = balance;
+}
+
+function contractCustomerSummary(customerId) {
+  const customer = customerById(customerId);
+  if (!customer?.id) return '';
+
+  return `
+    <div class="contract-customer-summary">
+      <div><span>계약자</span><b>${esc(customer.name || '-')}</b></div>
+      <div><span>연락처</span><b class="phone-text">${esc(customer.phone || '-')}</b></div>
+      <div><span>예식일</span><b>${esc(customer.weddingDate || '-')}</b></div>
+      <div><span>예식장</span><b>${esc(customer.venue || '-')}</b></div>
+      <div><span>손님구분</span><b>${esc(customer.customerType || '-')}</b></div>
+      <div><span>선택 드레스</span><b>${esc(customer.selectedDress || '-')}</b></div>
+    </div>
+  `;
+}
+
+function contractForm(item={}){
+  const finance = contractFinancials(item);
+
+  return `<form class="ops-form">
+    <p class="eyebrow">CONTRACT</p>
+    <h2>${item.id ? '계약 수정' : '새 계약'}</h2>
+
+    <input type="hidden" name="id" value="${esc(item.id || '')}">
+
+    <div class="crm-grid">
+      <label>고객
+        <select name="customerId" required>
+          <option value="">선택</option>
+          ${customerOptions(item.customerId)}
+        </select>
+      </label>
+
+      <label>계약 상태
+        <select name="status">
+          ${['상담','계약진행','계약완료','해지'].map((status) =>
+            `<option ${item.status === status ? 'selected' : ''}>${status}</option>`
+          ).join('')}
+        </select>
+      </label>
+
+      <label>계약일
+        <input type="date" name="contractDate" value="${esc(item.contractDate || '')}">
+      </label>
+
+      <label>총 계약금
+        <input type="number" name="totalAmount" min="0" value="${esc(finance.total || '')}" oninput="updateContractBalance()">
+      </label>
+
+      <label>계약금
+        <input type="number" name="depositAmount" min="0" value="${esc(finance.deposit || '')}" oninput="updateContractBalance()">
+      </label>
+
+      <label>잔금
+        <input type="number" name="balanceAmount" value="${esc(finance.balance)}" readonly>
+      </label>
+
+      <label>상품 구성
+        <input name="packageName" value="${esc(item.packageName || '')}" placeholder="본식 드레스 + 촬영 드레스">
+      </label>
+
+      <label>본식일
+        <input type="date" name="weddingDate" value="${esc(item.weddingDate || '')}">
+      </label>
+
+      <label class="crm-wide">계약 메모
+        <textarea name="memo" rows="5">${esc(item.memo || '')}</textarea>
+      </label>
+    </div>
+
+    <button class="primary" type="submit">저장</button>
+  </form>`;
+}
+
+async function saveContract(e){
+  e.preventDefault();
+
+  const data = new FormData(e.target);
+  const customer = customerById(data.get('customerId'));
+  const totalAmount = Number(data.get('totalAmount') || 0);
+  const depositAmount = Math.min(Number(data.get('depositAmount') || 0), totalAmount);
+  const balanceAmount = Math.max(totalAmount - depositAmount, 0);
+
+  const item = {
+    id: data.get('id') || makeDocId('CT'),
+    customerId: data.get('customerId'),
+    customerName: customer.name || '',
+    phone: customer.phone || '',
+    status: data.get('status'),
+    contractDate: data.get('contractDate'),
+    totalAmount,
+    depositAmount,
+    balanceAmount,
+    packageName: data.get('packageName').trim(),
+    weddingDate: data.get('weddingDate'),
+    memo: data.get('memo').trim(),
+    updatedAt: new Date().toISOString()
+  };
+
+  await LuaDataService.saveCollectionDoc('contracts', item);
+  showToast('<b>계약정보가 저장되었습니다.</b>');
+  closeOpsModal();
+}
 function openCustomerById(customerId, phone = '') {
   const id = customerId || customerIdFromPhone(phone);
   document.querySelector('[data-tab="customers"]')?.click();
@@ -835,13 +976,80 @@ function bindOperationCustomerLinks() {
 }
 
 function renderContracts(){
-  const q=($('contractSearch')?.value||'').toLowerCase();
-  const st=$('contractStatusFilter')?.value||'';
-  const list=contractsData.filter(x=>(!st||x.status===st)&&(!q||[x.customerName,x.phone,x.id,x.packageName].some(v=>String(v||'').toLowerCase().includes(q))));
-  $('contractList').innerHTML=list.map(x=>`<article class="ops-card"><div><span class="status-chip">${esc(x.status)}</span><h3><button type="button" class="ops-customer-link" data-customer-id="${esc(x.customerId||'')}" data-phone="${esc(x.phone||'')}">${esc(x.customerName||'고객')}</button></h3><p>${esc(x.phone||'')} · ${esc(x.contractDate||'-')}</p><p>${esc(x.packageName||'상품 미입력')}</p></div><div class="ops-card-side"><b>${money(x.totalAmount)}</b><button class="secondary small edit-contract" data-id="${esc(x.id)}">수정</button><button class="danger-link remove-contract" data-id="${esc(x.id)}">삭제</button></div></article>`).join('')||'<div class="empty">계약이 없습니다.</div>';
+  const query = ($('contractSearch')?.value || '').toLowerCase();
+  const status = $('contractStatusFilter')?.value || '';
+
+  const list = contractsData.filter((contract) =>
+    (!status || contract.status === status) &&
+    (!query || [
+      contract.customerName,
+      contract.phone,
+      contract.id,
+      contract.packageName
+    ].some((value) => String(value || '').toLowerCase().includes(query)))
+  );
+
+  $('contractList').innerHTML = list.map((contract) => {
+    const customer = customerById(contract.customerId);
+    const finance = contractFinancials(contract);
+
+    return `
+      <article class="contract-detail-card">
+        <div class="contract-detail-head">
+          <div>
+            <span class="status-chip">${esc(contract.status || '-')}</span>
+            <h3>
+              <button type="button" class="ops-customer-link"
+                data-customer-id="${esc(contract.customerId || '')}"
+                data-phone="${esc(contract.phone || '')}">
+                ${esc(contract.customerName || '고객')}
+              </button>
+            </h3>
+            <p>${esc(contract.contractDate || '-')} · ${esc(contract.packageName || '상품 미입력')}</p>
+          </div>
+          <div class="contract-card-actions">
+            <button class="secondary small edit-contract" data-id="${esc(contract.id)}">수정</button>
+            <button class="danger-link remove-contract" data-id="${esc(contract.id)}">삭제</button>
+          </div>
+        </div>
+
+        ${contractCustomerSummary(contract.customerId)}
+
+        <div class="contract-money-grid">
+          <div><span>총 계약금</span><b>${money(finance.total)}</b></div>
+          <div><span>계약금</span><b>${money(finance.deposit)}</b></div>
+          <div class="${finance.balance > 0 ? 'balance-due' : ''}">
+            <span>잔금</span><b>${money(finance.balance)}</b>
+          </div>
+        </div>
+
+        <div class="contract-extra-grid">
+          <div><span>본식일</span><b>${esc(contract.weddingDate || customer.weddingDate || '-')}</b></div>
+          <div><span>예식장</span><b>${esc(customer.venue || '-')}</b></div>
+          <div><span>선택 드레스</span><b>${esc(customer.selectedDress || '-')}</b></div>
+        </div>
+
+        ${contract.memo ? `<div class="contract-memo"><span>계약 메모</span><p>${esc(contract.memo)}</p></div>` : ''}
+      </article>
+    `;
+  }).join('') || '<div class="empty">계약이 없습니다.</div>';
+
   bindOperationCustomerLinks();
-  document.querySelectorAll('.edit-contract').forEach(b=>b.onclick=()=>openOpsModal(contractForm(contractsData.find(x=>x.id===b.dataset.id)),saveContract));
-  document.querySelectorAll('.remove-contract').forEach(b=>b.onclick=async()=>{if(confirm('계약을 삭제할까요?'))await LuaDataService.removeCollectionDoc('contracts',b.dataset.id)});
+
+  document.querySelectorAll('.edit-contract').forEach((button) => {
+    button.onclick = () => openOpsModal(
+      contractForm(contractsData.find((item) => item.id === button.dataset.id)),
+      saveContract
+    );
+  });
+
+  document.querySelectorAll('.remove-contract').forEach((button) => {
+    button.onclick = async () => {
+      if (confirm('계약을 삭제할까요?')) {
+        await LuaDataService.removeCollectionDoc('contracts', button.dataset.id);
+      }
+    };
+  });
 }
 
 function paymentForm(item={}){return `<form class="ops-form"><p class="eyebrow">PAYMENT</p><h2>결제 기록</h2><input type="hidden" name="id" value="${esc(item.id||'')}"><div class="crm-grid"><label>고객<select name="customerId" required><option value="">선택</option>${customerOptions(item.customerId)}</select></label><label>결제 구분<select name="type">${['계약금','중도금','잔금','환불','기타'].map(x=>`<option ${item.type===x?'selected':''}>${x}</option>`).join('')}</select></label><label>결제일<input type="date" name="paidDate" value="${esc(item.paidDate||new Date().toISOString().slice(0,10))}"></label><label>금액<input type="number" name="amount" min="0" value="${esc(item.amount||'')}"></label><label>결제수단<select name="method">${['카드','계좌이체','현금','기타'].map(x=>`<option ${item.method===x?'selected':''}>${x}</option>`).join('')}</select></label><label>관련 계약<select name="contractId"><option value="">선택 안 함</option>${contractsData.map(c=>`<option value="${esc(c.id)}" ${item.contractId===c.id?'selected':''}>${esc(c.customerName)} · ${esc(c.id)}</option>`).join('')}</select></label><label class="crm-wide">메모<textarea name="memo" rows="4">${esc(item.memo||'')}</textarea></label></div><button class="primary" type="submit">저장</button></form>`;}
@@ -1479,7 +1687,8 @@ function managedAssetForm(title, item = {}, options = {}) {
     typeField = '',
     typeOptions = [],
     folder = 'managed',
-    extraFields = ''
+    extraFields = '',
+    hideMemo = false
   } = options;
 
   const currentImage = item.photoUrl || '';
@@ -1538,7 +1747,7 @@ function managedAssetForm(title, item = {}, options = {}) {
         </select>
       </label>
 
-      <label class="crm-wide">세부내용<textarea name="memo" rows="5">${esc(item.memo || '')}</textarea></label>
+      ${hideMemo ? '' : `<label class="crm-wide">세부내용<textarea name="memo" rows="5">${esc(item.memo || '')}</textarea></label>`}
     </div>
 
     <button class="primary" type="submit">저장</button>
@@ -1618,13 +1827,16 @@ function showManagedAssetDetail(item, title, editHandler) {
           ${item.rentalDate ? `<div><span>대여일</span><b>${esc(item.rentalDate)}</b></div>` : ''}
           ${item.returnDate ? `<div><span>반납일</span><b>${esc(item.returnDate)}</b></div>` : ''}
           ${item.material ? `<div><span>소재/특징</span><b>${esc(item.material)}</b></div>` : ''}
+          ${item.checkItems ? `<div class="detail-wide"><span>체크사항</span><b>${esc(item.checkItems)}</b></div>` : ''}
           <div><span>연결 고객</span><b>${esc(item.customerName || '-')}</b></div>
         </div>
 
-        <div class="detail-memo">
-          <span>세부내용</span>
-          <p>${esc(item.memo || '기록된 내용이 없습니다.')}</p>
-        </div>
+        ${item.memo ? `
+          <div class="detail-memo">
+            <span>세부내용</span>
+            <p>${esc(item.memo)}</p>
+          </div>
+        ` : ''}
 
         <div class="detail-actions">
           <button type="button" class="primary" id="managedEditButton">수정</button>
@@ -1698,7 +1910,15 @@ function iroDressForm(item = {}) {
   return managedAssetForm('이로스타일 드레스', item, {
     eyebrow: 'IRO STYLE · DRESS',
     folder: 'iro-dresses',
-    extraFields: `<label>색상<input name="color" value="${esc(item.color || '')}"></label>`
+    hideMemo: true,
+    extraFields: `
+      <label>색상<input name="color" value="${esc(item.color || '')}"></label>
+      <label>대여일<input type="date" name="rentalDate" value="${esc(item.rentalDate || '')}"></label>
+      <label>대여료<input type="number" name="rentalFee" min="0" value="${esc(item.rentalFee || 0)}"></label>
+      <label>보증금<input type="number" name="deposit" min="0" value="${esc(item.deposit || 0)}"></label>
+      <label>반납일<input type="date" name="returnDate" value="${esc(item.returnDate || '')}"></label>
+      <label class="crm-wide">체크사항<textarea name="checkItems" rows="5" placeholder="오염, 수선, 구성품, 반납 확인사항 등을 기록하세요.">${esc(item.checkItems || '')}</textarea></label>
+    `
   });
 }
 
@@ -1751,7 +1971,14 @@ function renderIroStyle() {
     prefix: 'IRD',
     folder: 'iro-dresses',
     formFactory: iroDressForm,
-    extraBuilder: (data) => ({ color: data.get('color')?.trim() || '' })
+    extraBuilder: (data) => ({
+      color: data.get('color')?.trim() || '',
+      rentalDate: data.get('rentalDate') || '',
+      rentalFee: Number(data.get('rentalFee') || 0),
+      deposit: Number(data.get('deposit') || 0),
+      returnDate: data.get('returnDate') || '',
+      checkItems: data.get('checkItems')?.trim() || ''
+    })
   });
 
   renderManagedAssetList('iroShoesList', iroShoesData, {
@@ -1821,7 +2048,14 @@ $('newContractBtn')?.addEventListener('click',()=>openOpsModal(contractForm(),sa
 $('newPaymentBtn')?.addEventListener('click',()=>openOpsModal(paymentForm(),savePayment));
 $('newDressBtn')?.addEventListener('click',()=>openOpsModal(dressForm(),saveDress));
 
-$('newIroDressBtn')?.addEventListener('click',()=>openOpsModal(iroDressForm(),(event)=>saveManagedAsset(event,'iroDresses','IRD','iro-dresses',(data)=>({color:data.get('color')?.trim()||''}))));
+$('newIroDressBtn')?.addEventListener('click',()=>openOpsModal(iroDressForm(),(event)=>saveManagedAsset(event,'iroDresses','IRD','iro-dresses',(data)=>({
+      color:data.get('color')?.trim()||'',
+      rentalDate:data.get('rentalDate')||'',
+      rentalFee:Number(data.get('rentalFee')||0),
+      deposit:Number(data.get('deposit')||0),
+      returnDate:data.get('returnDate')||'',
+      checkItems:data.get('checkItems')?.trim()||''
+    }))));
 $('newIroShoesBtn')?.addEventListener('click',()=>openOpsModal(iroShoesForm(),(event)=>saveManagedAsset(event,'iroShoes','IRS','iro-shoes',(data)=>({size:data.get('size')?.trim()||'',color:data.get('color')?.trim()||'',heelHeight:data.get('heelHeight')?.trim()||'',rentalFee:Number(data.get('rentalFee')||0),deposit:Number(data.get('deposit')||0),rentalDate:data.get('rentalDate')||'',returnDate:data.get('returnDate')||''}))));
 $('newHanbokBtn')?.addEventListener('click',()=>openOpsModal(hanbokForm(),(event)=>saveManagedAsset(event,'hanbok','HB','hanbok',(data)=>({type:data.get('type')||'기타',color:data.get('color')?.trim()||'',rentalDate:data.get('rentalDate')||'',returnDate:data.get('returnDate')||'',rentalFee:Number(data.get('rentalFee')||0)}))));
 

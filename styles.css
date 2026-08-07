@@ -1157,3 +1157,204 @@ header nav a{
 .ops-customer-link{border:0;padding:0;background:transparent;color:#7d5d29;font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .ops-customer-link:hover{color:#2f261b}
 @media(max-width:700px){.customer-accessory-preview{grid-template-columns:1fr}.customer-accessory-preview img,.customer-accessory-no-image{width:100%;height:auto;min-height:280px}}
+
+
+/* V4.2 IRO thumbnail layout */
+#iroDressList.iro-thumbnail-list,
+#iroShoesList.iro-thumbnail-list{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:24px;
+}
+
+#iroDressList .managed-large-card,
+#iroShoesList .managed-large-card{
+  width:100%;
+  max-width:640px;
+  margin:0 auto;
+}
+
+#iroDressList .managed-large-thumb,
+#iroShoesList .managed-large-thumb{
+  width:min(600px,100%);
+  height:auto;
+  aspect-ratio:3/4;
+  margin:18px auto 0;
+}
+
+#iroDressList .managed-large-thumb img,
+#iroShoesList .managed-large-thumb img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+}
+
+/* V4.2 Contract details */
+.contract-detail-card{
+  margin-bottom:20px;
+  padding:22px;
+  border:1px solid #dfd4c6;
+  background:#fff;
+}
+
+.contract-detail-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:18px;
+  padding-bottom:16px;
+  border-bottom:1px solid #eee5da;
+}
+
+.contract-detail-head h3{
+  margin:8px 0 5px;
+  font-size:25px;
+}
+
+.contract-detail-head p{
+  margin:0;
+  color:#817568;
+}
+
+.contract-card-actions{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+.contract-customer-summary{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin:18px 0;
+}
+
+.contract-customer-summary>div,
+.contract-extra-grid>div{
+  padding:13px;
+  border:1px solid #e8ded1;
+  background:#fbf8f3;
+}
+
+.contract-customer-summary span,
+.contract-extra-grid span,
+.contract-money-grid span,
+.contract-memo span{
+  display:block;
+  margin-bottom:5px;
+  font-size:11px;
+  color:#887b6c;
+}
+
+.contract-money-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin:18px 0;
+}
+
+.contract-money-grid>div{
+  padding:18px;
+  border:1px solid #dfd4c6;
+  background:#fff;
+}
+
+.contract-money-grid b{
+  font-family:'Gowun Batang',serif;
+  font-size:24px;
+}
+
+.contract-money-grid .balance-due{
+  background:#fff5f3;
+  border-color:#d9aaa3;
+}
+
+.contract-money-grid .balance-due b{
+  color:#9b4039;
+}
+
+.contract-extra-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+}
+
+.contract-memo{
+  margin-top:12px;
+  padding:14px;
+  border:1px solid #e8ded1;
+}
+
+.contract-memo p{
+  margin:0;
+  white-space:pre-wrap;
+}
+
+/* V4.2 Customer fitting photos: 600px */
+.customer-fitting-dress-preview{
+  width:min(600px,100%)!important;
+  min-height:320px;
+  margin:10px auto 0;
+  padding:10px;
+  border:1px solid #dfd4c6;
+  background:#eee8df;
+}
+
+.customer-fitting-dress-preview img{
+  display:block;
+  width:min(600px,100%)!important;
+  height:auto!important;
+  max-height:760px!important;
+  object-fit:contain;
+  margin:0 auto;
+}
+
+.fitting-preview-meta{
+  display:grid;
+  gap:4px;
+  width:100%;
+  padding:10px 4px 2px;
+  background:#fff;
+}
+
+.fitting-preview-meta b{
+  font-size:17px;
+}
+
+.fitting-preview-meta small{
+  color:#837669;
+}
+
+/* IRO checklist */
+.detail-grid .detail-wide{
+  grid-column:1/-1;
+}
+
+@media(max-width:900px){
+  #iroDressList.iro-thumbnail-list,
+  #iroShoesList.iro-thumbnail-list{
+    grid-template-columns:1fr;
+  }
+
+  .contract-customer-summary,
+  .contract-money-grid,
+  .contract-extra-grid{
+    grid-template-columns:1fr 1fr;
+  }
+}
+
+@media(max-width:600px){
+  .contract-detail-head{
+    display:block;
+  }
+
+  .contract-card-actions{
+    margin-top:12px;
+  }
+
+  .contract-customer-summary,
+  .contract-money-grid,
+  .contract-extra-grid{
+    grid-template-columns:1fr;
+  }
+}
