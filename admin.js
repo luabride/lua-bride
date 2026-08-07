@@ -1,3 +1,14 @@
+
+window.addEventListener('error', (event) => {
+  console.error('Lua Bride admin runtime error:', event.error || event.message);
+  const loginBox = document.getElementById('loginError');
+  const app = document.getElementById('adminApp');
+  if (loginBox && (!app || app.hidden)) {
+    loginBox.textContent = `관리자 화면 오류: ${event.message || '알 수 없는 오류'}`;
+    loginBox.style.display = 'block';
+  }
+});
+
 let allData = [];
 let savedCustomers = [];
 let selectedCustomerId = null;
@@ -129,13 +140,19 @@ $('logoutBtn').onclick = async () => {
   showLogin();
 };
 
+// 인증 상태 리스너는 가장 먼저 등록해 이후 부가 UI 오류가 로그인에 영향을 주지 않게 합니다.
+LuaAuthService.onChange((user) => user ? showApp(user) : showLogin());
+
 document.querySelectorAll('.admin-tab').forEach((button) => {
   button.onclick = () => {
     document.querySelectorAll('.admin-tab').forEach((item) => item.classList.toggle('active', item === button));
-    document.querySelectorAll('.admin-tab-panel').forEach((panel) => setVisible(panel, panel.id === `${button.dataset.tab}Tab`));
-    if (button.dataset.tab === 'schedule') renderSchedule();
-    if (button.dataset.tab === 'irostyle') renderIroStyle();
-    if (button.dataset.tab === 'hanbok') renderHanbok();
+    document.querySelectorAll('.admin-tab-panel').forEach((panel) => {
+      setVisible(panel, panel.id === `${button.dataset.tab}Tab`);
+    });
+
+    if (button.dataset.tab === 'schedule' && typeof renderSchedule === 'function') renderSchedule();
+    if (button.dataset.tab === 'irostyle' && typeof renderIroStyle === 'function') renderIroStyle();
+    if (button.dataset.tab === 'hanbok' && typeof renderHanbok === 'function') renderHanbok();
   };
 });
 
@@ -1034,9 +1051,9 @@ function renderSchedule(){
 $('newContractBtn').onclick=()=>openOpsModal(contractForm(),saveContract);
 $('newPaymentBtn').onclick=()=>openOpsModal(paymentForm(),savePayment);
 $('newDressBtn').onclick=()=>openOpsModal(dressForm(),saveDress);
-$('newIroDressBtn').onclick=()=>openOpsModal(simpleAssetForm('이로스타일 드레스 추가'),(event)=>saveIroAsset(event,'iroDresses','IRD'));
-$('newIroShoesBtn').onclick=()=>openOpsModal(simpleAssetForm('이로스타일 슈즈 추가'),(event)=>saveIroAsset(event,'iroShoes','IRS'));
-$('newHanbokBtn').onclick=()=>openOpsModal(hanbokForm(),saveHanbok);
+$('newIroDressBtn')?.addEventListener('click',()=>openOpsModal(simpleAssetForm('이로스타일 드레스 추가'),(event)=>saveIroAsset(event,'iroDresses','IRD')));
+$('newIroShoesBtn')?.addEventListener('click',()=>openOpsModal(simpleAssetForm('이로스타일 슈즈 추가'),(event)=>saveIroAsset(event,'iroShoes','IRS')));
+$('newHanbokBtn')?.addEventListener('click',()=>openOpsModal(hanbokForm(),saveHanbok));
 ['contractSearch','contractStatusFilter'].forEach(id=>$(id).addEventListener('input',renderContracts));
 ['paymentSearch','paymentMethodFilter'].forEach(id=>$(id).addEventListener('input',renderPayments));
 ['dressSearch','dressStatusFilter'].forEach(id=>$(id).addEventListener('input',renderDresses));
@@ -1225,7 +1242,7 @@ function renderHanbok() {
 }
 
 
-LuaAuthService.onChange((user) => user ? showApp(user) : showLogin());
+
 function openCustomerFromFitting(customerId, phone) {
   const resolvedId = customerId || customerIdFromPhone(phone || '');
   const customersTab = document.querySelector('[data-tab="customers"]');
