@@ -564,3 +564,33 @@ $('newDressBtn').onclick=()=>openOpsModal(dressForm(),saveDress);
 $('scheduleDate').addEventListener('input',renderSchedule);
 
 LuaAuthService.onChange((user) => user ? showApp(user) : showLogin());
+function openCustomerFromFitting(customerId, phone) {
+  const tab = document.querySelector('[data-tab="customers"]');
+  if (tab) tab.click();
+
+  const resolvedId =
+    customerId ||
+    (typeof customerIdFromPhone === 'function'
+      ? customerIdFromPhone(phone || '')
+      : String(phone || '').replace(/\D/g, ''));
+
+  if (resolvedId && typeof selectCustomer === 'function') {
+    selectCustomer(resolvedId);
+  }
+
+  setTimeout(() => {
+    document.getElementById('customerDetail')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }, 100);
+}
+
+function bindFittingCustomerLinks() {
+  document.querySelectorAll('.fitting-customer-link').forEach((button) => {
+    button.onclick = () => openCustomerFromFitting(
+      button.dataset.customerId || '',
+      button.dataset.phone || ''
+    );
+  });
+}
