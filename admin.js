@@ -527,6 +527,7 @@ function renderSchedule(){
     .filter(x=>x.date===date&&x.status!=='취소')
     .map(x=>({
       key:`${customerIdFromPhone(x.phone)}-${x.date}-${x.time}`,
+      customerId:customerIdFromPhone(x.phone),
       time:x.time||'',
       name:x.name||'',
       phone:x.phone||'',
@@ -541,6 +542,7 @@ function renderSchedule(){
     .filter(c=>c.fittingDate===date&&c.fittingTime)
     .map(c=>({
       key:`${c.id}-${c.fittingDate}-${c.fittingTime}`,
+      customerId:c.id,
       time:c.fittingTime||'',
       name:c.name||'',
       phone:c.phone||'',
@@ -552,7 +554,8 @@ function renderSchedule(){
     .filter(x=>!existingKeys.has(x.key));
 
   const list=[...reservationItems,...customerItems].sort((a,b)=>String(a.time).localeCompare(String(b.time)));
-  $('scheduleBoard').innerHTML=list.map(x=>`<article class="schedule-item"><time>${esc(x.time)}</time><div><h3>${esc(x.name)}</h3><p>${esc(x.phone)} · ${esc(x.purpose)}</p><small>${esc(x.memo||'')}</small></div><span class="status-chip">${esc(x.source)}</span></article>`).join('')||'<div class="empty">선택한 날짜의 피팅 일정이 없습니다.</div>';
+  $('scheduleBoard').innerHTML=list.map(x=>`<article class="schedule-item"><time>${esc(x.time)}</time><div><h3><button type="button" class="fitting-customer-link" data-customer-id="${esc(x.customerId||'')}" data-phone="${esc(x.phone||'')}">${esc(x.name||'고객')}</button></h3><p>${esc(x.phone)} · ${esc(x.purpose)}</p><small>${esc(x.memo||'')}</small></div><span class="status-chip">${esc(x.source)}</span></article>`).join('')||'<div class="empty">선택한 날짜의 피팅 일정이 없습니다.</div>';
+  bindFittingCustomerLinks();
 }
 
 $('newContractBtn').onclick=()=>openOpsModal(contractForm(),saveContract);
@@ -565,32 +568,28 @@ $('scheduleDate').addEventListener('input',renderSchedule);
 
 LuaAuthService.onChange((user) => user ? showApp(user) : showLogin());
 function openCustomerFromFitting(customerId, phone) {
-  const tab = document.querySelector('[data-tab="customers"]');
-  if (tab) tab.click();
+  const resolvedId = customerId || customerIdFromPhone(phone || '');
+  const customersTab = document.querySelector('[data-tab="customers"]');
 
-  const resolvedId =
-    customerId ||
-    (typeof customerIdFromPhone === 'function'
-      ? customerIdFromPhone(phone || '')
-      : String(phone || '').replace(/\D/g, ''));
+  if (customersTab) customersTab.click();
 
-  if (resolvedId && typeof selectCustomer === 'function') {
-    selectCustomer(resolvedId);
-  }
+  // 고객 목록이 즉시 렌더링되도록 보장한 뒤 해당 고객을 선택한다.
+  renderCustomers();
+  selectCustomer(resolvedId);
 
-  setTimeout(() => {
-    document.getElementById('customerDetail')?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    });
-  }, 100);
+  requestAnimationFrame(() => {
+    const selectedCard = document.querySelector(`.customer-card[data-id="${CSS.escape(resolvedId)}"]`);
+    if (selectedCard) selectedCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    const detail = $('customerDetail');
+    if (detail) detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 }
 
 function bindFittingCustomerLinks() {
   document.querySelectorAll('.fitting-customer-link').forEach((button) => {
-    button.onclick = () => openCustomerFromFitting(
-      button.dataset.customerId || '',
-      button.dataset.phone || ''
-    );
+    button.addEventListener('click', () => {
+      openCustomerFromFitting(button.dataset.customerId || '', button.dataset.phone || '');
+    });
   });
 }
