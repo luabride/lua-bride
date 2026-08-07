@@ -55,6 +55,7 @@
         <button class="admin-tab" data-tab="schedule">피팅일정</button>
         <button class="admin-tab" data-tab="irostyle">이로스타일</button>
         <button class="admin-tab" data-tab="hanbok">봄날한복</button>
+        <button class="admin-tab" data-tab="accessories">악세사리</button>
       </nav>
 
       <section id="reservationsTab" class="admin-tab-panel">
@@ -153,7 +154,7 @@
 
       <section id="scheduleTab" class="admin-tab-panel" hidden>
         <section class="admin-panel ops-panel">
-          <div class="panel-head"><div><p class="eyebrow">FITTING SCHEDULE</p><h2>피팅 일정표</h2></div><input id="scheduleDate" type="date"></div>
+          <div class="panel-head"><div><p class="eyebrow">FITTING SCHEDULE</p><h2>피팅 일정표</h2></div><input id="scheduleMonth" type="month"></div>
           <div id="scheduleBoard" class="schedule-board"></div>
         </section>
       </section>
@@ -192,6 +193,44 @@
             <button id="newHanbokBtn" class="primary small">한복 추가</button>
           </div>
           <div id="hanbokList" class="mini-asset-list"></div>
+        </section>
+      </section>
+
+
+      <section id="accessoriesTab" class="admin-tab-panel" hidden>
+        <section class="admin-panel ops-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">ACCESSORIES</p>
+              <h2>악세사리</h2>
+            </div>
+          </div>
+
+          <div class="accessory-management-grid">
+            <section class="management-subpanel">
+              <div class="panel-head compact">
+                <div><p class="eyebrow">VEIL</p><h3>베일</h3></div>
+                <button id="newVeilAccessoryBtn" class="primary small">베일 추가</button>
+              </div>
+              <div id="veilAccessoryList" class="managed-asset-list"></div>
+            </section>
+
+            <section class="management-subpanel">
+              <div class="panel-head compact">
+                <div><p class="eyebrow">TIARA</p><h3>티아라</h3></div>
+                <button id="newTiaraAccessoryBtn" class="primary small">티아라 추가</button>
+              </div>
+              <div id="tiaraAccessoryList" class="managed-asset-list"></div>
+            </section>
+
+            <section class="management-subpanel">
+              <div class="panel-head compact">
+                <div><p class="eyebrow">OTHER</p><h3>기타</h3></div>
+                <button id="newOtherAccessoryBtn" class="primary small">기타 추가</button>
+              </div>
+              <div id="otherAccessoryList" class="managed-asset-list"></div>
+            </section>
+          </div>
         </section>
       </section>
 

@@ -19,6 +19,8 @@ let unsubscribeHanbok = null;
 let iroDressesData = [];
 let iroShoesData = [];
 let hanbokData = [];
+let accessoriesData = [];
+let unsubscribeAccessories = null;
 let unsubscribeCustomers = null;
 let contractsData = [];
 let paymentsData = [];
@@ -27,6 +29,7 @@ const DRESS_CATEGORIES = ['아이테오 드레스', '루아 드레스'];
 let unsubscribeContracts = null;
 let unsubscribePayments = null;
 let unsubscribeDresses = null;
+  unsubscribeAccessories = null;
   unsubscribeIroDresses = null;
   unsubscribeIroShoes = null;
   unsubscribeHanbok = null;
@@ -89,6 +92,7 @@ function showApp(user) {
   if (!unsubscribeIroDresses) unsubscribeIroDresses = LuaDataService.subscribeCollection('iroDresses', (data) => { iroDressesData = data; renderIroStyle(); }, showError);
   if (!unsubscribeIroShoes) unsubscribeIroShoes = LuaDataService.subscribeCollection('iroShoes', (data) => { iroShoesData = data; renderIroStyle(); }, showError);
   if (!unsubscribeHanbok) unsubscribeHanbok = LuaDataService.subscribeCollection('hanbok', (data) => { hanbokData = data; renderHanbok(); }, showError);
+  if (!unsubscribeAccessories) unsubscribeAccessories = LuaDataService.subscribeCollection('accessories', (data) => { accessoriesData = data; renderAccessories(); }, showError);
 }
 
 function showLogin() {
@@ -103,6 +107,7 @@ function showLogin() {
   if (unsubscribeIroDresses) unsubscribeIroDresses();
   if (unsubscribeIroShoes) unsubscribeIroShoes();
   if (unsubscribeHanbok) unsubscribeHanbok();
+  if (unsubscribeAccessories) unsubscribeAccessories();
   unsubscribeReservations = null;
   unsubscribeCustomers = null;
   unsubscribeContracts = null;
@@ -152,6 +157,7 @@ document.querySelectorAll('.admin-tab').forEach((button) => {
     if (button.dataset.tab === 'schedule' && typeof renderSchedule === 'function') renderSchedule();
     if (button.dataset.tab === 'irostyle' && typeof renderIroStyle === 'function') renderIroStyle();
     if (button.dataset.tab === 'hanbok' && typeof renderHanbok === 'function') renderHanbok();
+    if (button.dataset.tab === 'accessories' && typeof renderAccessories === 'function') renderAccessories();
   };
 });
 
@@ -389,6 +395,83 @@ function openCustomerByPhone(phone) {
   selectCustomer(customerIdFromPhone(phone));
 }
 
+
+function dressById(id) {
+  return dressesData.find((dress) => dress.id === id) || null;
+}
+
+function dressOptionLabel(dress) {
+  return [dress.category, dress.name, dress.code].filter(Boolean).join(' · ');
+}
+
+function dressSelectOptions(selectedId = '', allowEmpty = true) {
+  const groups = DRESS_CATEGORIES.map((category) => {
+    const items = dressesData.filter((dress) => (dress.category || '루아 드레스') === category);
+    if (!items.length) return '';
+    return `<optgroup label="${esc(category)}">${
+      items.map((dress) =>
+        `<option value="${esc(dress.id)}" ${selectedId === dress.id ? 'selected' : ''}>${esc(dressOptionLabel(dress))}</option>`
+      ).join('')
+    }</optgroup>`;
+  }).join('');
+
+  return `${allowEmpty ? '<option value="">선택 안함</option>' : ''}${groups}`;
+}
+
+function fittingDressIdsForCustomer(customer) {
+  const ids = Array.isArray(customer.fittingDressIds) ? customer.fittingDressIds.slice(0, 6) : [];
+  while (ids.length < 6) ids.push('');
+  return ids;
+}
+
+function renderCustomerDressPreview(customer) {
+  const selected = dressById(customer.selectedDressId || '');
+  if (!selected) {
+    return `<div class="customer-selected-dress empty">선택한 드레스가 없습니다.</div>`;
+  }
+
+  return `
+    <div class="customer-selected-dress">
+      ${
+        selected.photoUrl
+          ? `<img src="${esc(selected.photoUrl)}" alt="${esc(selected.name || '선택 드레스')}">`
+          : `<div class="customer-dress-no-image">NO IMAGE</div>`
+      }
+      <div>
+        <span class="status-chip">${esc(selected.category || '드레스')}</span>
+        <h4>${esc(selected.name || '-')}</h4>
+        <p>${esc(selected.code || '')}${selected.color ? ` · ${esc(selected.color)}` : ''}</p>
+      </div>
+    </div>
+  `;
+}
+
+function updateCustomerDressPicker() {
+  const form = $('customerForm');
+  if (!form) return;
+
+  const selectedDressId = form.querySelector('[name="selectedDressId"]')?.value || '';
+  const preview = $('customerSelectedDressPreview');
+  const selected = dressById(selectedDressId);
+
+  if (preview) {
+    preview.innerHTML = selected
+      ? `${selected.photoUrl ? `<img src="${esc(selected.photoUrl)}" alt="${esc(selected.name || '')}">` : '<div class="customer-dress-no-image">NO IMAGE</div>'}
+         <div><span class="status-chip">${esc(selected.category || '')}</span><h4>${esc(selected.name || '')}</h4><p>${esc(selected.code || '')}</p></div>`
+      : '<div class="empty">선택한 드레스가 없습니다.</div>';
+  }
+}
+
+function syncSelectedDressFromFittingList(selectElement) {
+  const form = $('customerForm');
+  if (!form) return;
+  const select = form.querySelector('[name="selectedDressId"]');
+  if (select && selectElement?.value) {
+    select.value = selectElement.value;
+    updateCustomerDressPicker();
+  }
+}
+
 function showCustomerDetail(customer) {
   if (!customer) {
     $('customerDetail').innerHTML = '<div class="empty">고객을 찾을 수 없습니다.</div>';
@@ -398,15 +481,17 @@ function showCustomerDetail(customer) {
   const reservations = [...customer.reservations].sort((a, b) =>
     String(b.date).localeCompare(String(a.date))
   );
+  const fittingIds = fittingDressIdsForCustomer(customer);
 
   $('customerDetail').innerHTML = `
     <form id="customerForm" class="crm-form">
       <input type="hidden" name="id" value="${esc(customer.id)}">
+
       <div class="crm-head">
         <div>
           <p class="eyebrow">CUSTOMER PROFILE</p>
           <h2>${esc(customer.name || '고객')}</h2>
-          <span class="phone-text">${esc(customer.phone)}</span>
+          <span class="phone-text">${esc(customer.phone || '-')}</span>
         </div>
         <span class="crm-stage">${esc(customer.stage || '신규')}</span>
       </div>
@@ -414,38 +499,83 @@ function showCustomerDetail(customer) {
       <div class="crm-grid">
         <label>고객명<input name="name" value="${esc(customer.name || '')}" required></label>
         <label>연락처<input name="phone" value="${esc(customer.phone || '')}" required></label>
+
         <label>관리 단계
           <select name="stage">
-            ${['신규', '상담중', '피팅중', '계약완료', '보류'].map((stage) =>
+            ${['신규','상담중','피팅중','계약완료','보류'].map((stage) =>
               `<option ${customer.stage === stage ? 'selected' : ''}>${stage}</option>`
             ).join('')}
           </select>
         </label>
+
         <label>예식일<input name="weddingDate" type="date" value="${esc(customer.weddingDate || '')}"></label>
         <label>피팅 날짜<input name="fittingDate" type="date" value="${esc(customer.fittingDate || '')}"></label>
         <label>피팅 시간<input name="fittingTime" type="time" value="${esc(customer.fittingTime || '')}"></label>
+
         <label>피팅 구분
           <select name="fittingPurpose">
-            ${['드레스 피팅', '1차 피팅', '2차 피팅', '최종 피팅', '가봉', '기타'].map((purpose) =>
+            ${['드레스 피팅','1차 피팅','2차 피팅','최종 피팅','가봉','기타'].map((purpose) =>
               `<option ${customer.fittingPurpose === purpose ? 'selected' : ''}>${purpose}</option>`
             ).join('')}
           </select>
         </label>
-        <label>예식장<input name="venue" value="${esc(customer.venue || '')}" placeholder="예: 부산 ○○호텔"></label>
-        <label>예산<input name="budget" value="${esc(customer.budget || '')}" placeholder="예: 200~300만원"></label>
+
+        <label>예식장<input name="venue" value="${esc(customer.venue || '')}"></label>
+        <label>예산<input name="budget" value="${esc(customer.budget || '')}"></label>
+
         <label>손님구분
           <select name="customerType">
             <option value="">선택</option>
-            ${['다이렉트', '자체', '기타'].map((type) =>
+            ${['다이렉트','자체','기타'].map((type) =>
               `<option ${customer.customerType === type ? 'selected' : ''}>${type}</option>`
             ).join('')}
           </select>
         </label>
-        <label class="crm-wide">관심 스타일<input name="style" value="${esc(customer.style || '')}" placeholder="예: A라인, 심플, 비즈"></label>
-        <label class="crm-wide">선택한 드레스명<input name="selectedDress" value="${esc(customer.selectedDress || '')}" placeholder="예: Signature No.12"></label>
-        <label class="crm-wide">티아라 종류 및 제품명<input name="tiara" value="${esc(customer.tiara || '')}" placeholder="예: 크라운형 / T-07 로즈골드"></label>
-        <label class="crm-wide">선택한 베일<input name="veil" value="${esc(customer.veil || '')}" placeholder="예: 3m 레이스 롱베일 V-03"></label>
-        <label class="crm-wide">상담 메모<textarea name="memo" rows="6" placeholder="상담 내용, 동행자, 주의사항 등을 기록하세요.">${esc(customer.memo || '')}</textarea></label>
+
+        <label class="crm-wide">관심 스타일<input name="style" value="${esc(customer.style || '')}"></label>
+      </div>
+
+      <section class="customer-dress-picker">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">FITTING DRESSES</p>
+            <h3>피팅한 드레스 6벌</h3>
+          </div>
+          <small>각 항목은 드레스관리 등록 목록에서 선택합니다.</small>
+        </div>
+
+        <div class="fitting-dress-select-grid">
+          ${fittingIds.map((id, index) => `
+            <label>피팅 드레스 ${index + 1}
+              <select name="fittingDress${index + 1}" onchange="syncSelectedDressFromFittingList(this)">
+                ${dressSelectOptions(id)}
+              </select>
+              <div class="mini-dress-preview">
+                ${
+                  dressById(id)?.photoUrl
+                    ? `<img src="${esc(dressById(id).photoUrl)}" alt="${esc(dressById(id).name || '')}">`
+                    : '<span>사진 없음</span>'
+                }
+              </div>
+            </label>
+          `).join('')}
+        </div>
+
+        <label class="selected-dress-select">최종 선택 드레스
+          <select name="selectedDressId" onchange="updateCustomerDressPicker()">
+            ${dressSelectOptions(customer.selectedDressId || '')}
+          </select>
+        </label>
+
+        <div id="customerSelectedDressPreview">
+          ${renderCustomerDressPreview(customer)}
+        </div>
+      </section>
+
+      <div class="crm-grid">
+        <label class="crm-wide">티아라 종류 및 제품명<input name="tiara" value="${esc(customer.tiara || '')}"></label>
+        <label class="crm-wide">선택한 베일<input name="veil" value="${esc(customer.veil || '')}"></label>
+        <label class="crm-wide">상담 메모<textarea name="memo" rows="6">${esc(customer.memo || '')}</textarea></label>
       </div>
 
       <button class="primary" type="submit">고객정보 저장</button>
@@ -475,6 +605,13 @@ async function saveCustomer(event) {
   const phone = data.get('phone').trim();
   const button = form.querySelector('button[type="submit"]');
 
+  const fittingDressIds = [1,2,3,4,5,6]
+    .map((number) => data.get(`fittingDress${number}`) || '')
+    .filter((id, index, arr) => id && arr.indexOf(id) === index);
+
+  const selectedDressId = data.get('selectedDressId') || '';
+  const selectedDress = dressById(selectedDressId);
+
   const customer = {
     id: data.get('id') || customerIdFromPhone(phone),
     name: data.get('name').trim(),
@@ -488,7 +625,10 @@ async function saveCustomer(event) {
     budget: data.get('budget').trim(),
     style: data.get('style').trim(),
     customerType: data.get('customerType') || '',
-    selectedDress: data.get('selectedDress').trim(),
+    fittingDressIds,
+    selectedDressId,
+    selectedDress: selectedDress?.name || '',
+    selectedDressPhotoUrl: selectedDress?.photoUrl || '',
     tiara: data.get('tiara').trim(),
     veil: data.get('veil').trim(),
     memo: data.get('memo').trim(),
@@ -501,34 +641,27 @@ async function saveCustomer(event) {
   try {
     if (LuaDataService.mode === 'firebase') {
       const user = firebase.auth().currentUser;
-
       if (!user) {
         throw Object.assign(
           new Error('관리자 로그인 세션이 만료되었습니다. 다시 로그인해 주세요.'),
           { code: 'auth/session-expired' }
         );
       }
-
       await user.getIdToken(true);
     }
 
     const saved = await LuaDataService.saveCustomer(customer);
-
     const index = savedCustomers.findIndex((item) => item.id === customer.id);
-    if (index >= 0) {
-      savedCustomers[index] = { ...savedCustomers[index], ...saved };
-    } else {
-      savedCustomers.unshift(saved);
-    }
+
+    if (index >= 0) savedCustomers[index] = { ...savedCustomers[index], ...saved };
+    else savedCustomers.unshift(saved);
 
     selectedCustomerId = customer.id;
     renderCustomers();
-    showCustomerDetail(
-      mergedCustomers().find((item) => item.id === customer.id)
-    );
+    showCustomerDetail(mergedCustomers().find((item) => item.id === customer.id));
 
     showToast(
-      '<b>고객정보가 수정되었습니다.</b><small>변경사항이 Firebase에 저장되었습니다.</small>',
+      '<b>고객정보가 수정되었습니다.</b><small>드레스 피팅/선택 정보도 함께 저장되었습니다.</small>',
       'success'
     );
   } catch (error) {
@@ -536,14 +669,8 @@ async function saveCustomer(event) {
 
     const code = error?.code || 'unknown';
     let message = error?.message || '알 수 없는 오류';
-
-    if (code === 'permission-denied') {
-      message = 'Firestore 보안 규칙에서 고객정보 수정 권한이 차단되었습니다.';
-    } else if (code === 'auth/session-expired') {
-      message = '관리자 로그인 세션이 만료되었습니다. 로그아웃 후 다시 로그인해 주세요.';
-    } else if (code === 'unavailable') {
-      message = 'Firebase 연결이 일시적으로 불안정합니다. 잠시 후 다시 시도해 주세요.';
-    }
+    if (code === 'permission-denied') message = 'Firestore 보안 규칙에서 고객정보 수정 권한이 차단되었습니다.';
+    if (code === 'auth/session-expired') message = '관리자 로그인 세션이 만료되었습니다. 다시 로그인해 주세요.';
 
     showToast(
       `<b>고객정보 수정에 실패했습니다.</b><small>${esc(message)}<br>오류 코드: ${esc(code)}</small>`,
@@ -708,6 +835,63 @@ async function uploadDressImage(file, dressId) {
   });
 
   return snapshot.ref.getDownloadURL();
+}
+
+
+async function uploadManagedImage(file, folder, itemId) {
+  if (!file) return '';
+
+  if (!file.type.startsWith('image/')) {
+    const error = new Error('이미지 파일만 업로드할 수 있습니다.');
+    error.code = 'invalid-image';
+    throw error;
+  }
+
+  if (file.size > 8 * 1024 * 1024) {
+    const error = new Error('사진은 8MB 이하로 선택해 주세요.');
+    error.code = 'image-too-large';
+    throw error;
+  }
+
+  const storage = await ensureFirebaseStorage();
+  const safeFolder = String(folder || 'assets').replace(/[^a-zA-Z0-9_-]/g, '');
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `${safeFolder}/${itemId}/${Date.now()}-${safeName}`;
+  const ref = storage.ref().child(path);
+
+  const snapshot = await ref.put(file, {
+    contentType: file.type,
+    customMetadata: { itemId, folder: safeFolder }
+  });
+
+  return snapshot.ref.getDownloadURL();
+}
+
+function genericImagePreview(input, previewId, placeholderId) {
+  const preview = document.getElementById(previewId);
+  const placeholder = document.getElementById(placeholderId);
+  const file = input.files?.[0];
+  if (!preview || !file) return;
+
+  if (!file.type.startsWith('image/')) {
+    input.value = '';
+    showToast('<b>이미지 파일만 선택할 수 있습니다.</b>', 'error');
+    return;
+  }
+
+  if (file.size > 8 * 1024 * 1024) {
+    input.value = '';
+    showToast('<b>사진은 8MB 이하로 선택해 주세요.</b>', 'error');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    preview.src = reader.result;
+    preview.hidden = false;
+    if (placeholder) placeholder.hidden = true;
+  };
+  reader.readAsDataURL(file);
 }
 
 function dressForm(item={}) {
@@ -1011,40 +1195,169 @@ function renderDresses() {
   });
 }
 
-function renderSchedule(){
-  const date=$('scheduleDate').value||new Date().toISOString().slice(0,10);
-  $('scheduleDate').value=date;
-
-  const reservationItems=allData
-    .filter(x=>x.date===date&&x.status!=='취소')
-    .map(x=>({
-      key:`${customerIdFromPhone(x.phone)}-${x.date}-${x.time}`,
-      time:x.time||'',
-      name:x.name||'',
-      phone:x.phone||'',
-      purpose:x.purpose||'예약',
-      memo:x.memo||'',
-      status:x.status||'신청',
-      source:'예약'
+function buildFittingScheduleItems(month) {
+  const reservationItems = allData
+    .filter((item) => item.status !== '취소' && String(item.date || '').startsWith(month))
+    .map((item) => ({
+      key: `reservation-${item.id}`,
+      date: item.date || '',
+      time: item.time || '',
+      name: item.name || '',
+      phone: item.phone || '',
+      purpose: item.purpose || '예약',
+      memo: item.memo || '',
+      status: item.status || '신청',
+      source: '예약',
+      reservationId: item.id || '',
+      customerId: customerIdFromPhone(item.phone)
     }));
 
-  const existingKeys=new Set(reservationItems.map(x=>x.key));
-  const customerItems=mergedCustomers()
-    .filter(c=>c.fittingDate===date&&c.fittingTime)
-    .map(c=>({
-      key:`${c.id}-${c.fittingDate}-${c.fittingTime}`,
-      time:c.fittingTime||'',
-      name:c.name||'',
-      phone:c.phone||'',
-      purpose:c.fittingPurpose||'드레스 피팅',
-      memo:[c.selectedDress?`드레스: ${c.selectedDress}`:'',c.tiara?`티아라: ${c.tiara}`:'',c.veil?`베일: ${c.veil}`:''].filter(Boolean).join(' · '),
-      status:'고객관리',
-      source:'고객관리'
-    }))
-    .filter(x=>!existingKeys.has(x.key));
+  const existingKeys = new Set(
+    reservationItems.map((item) => `${item.customerId}-${item.date}-${item.time}`)
+  );
 
-  const list=[...reservationItems,...customerItems].sort((a,b)=>String(a.time).localeCompare(String(b.time)));
-  $('scheduleBoard').innerHTML=list.map(x=>`<article class="schedule-item"><time>${esc(x.time)}</time><div><h3><button type="button" class="fitting-customer-link" data-customer-id="${esc(x.customerId||'')}" data-phone="${esc(x.phone||'')}">${esc(x.name)}</button></h3><p>${esc(x.phone)} · ${esc(x.purpose)}</p><small>${esc(x.memo||'')}</small></div><span class="status-chip">${esc(x.source)}</span></article>`).join('')||'<div class="empty">선택한 날짜의 피팅 일정이 없습니다.</div>';
+  const customerItems = mergedCustomers()
+    .filter((customer) =>
+      customer.fittingDate &&
+      customer.fittingTime &&
+      String(customer.fittingDate).startsWith(month)
+    )
+    .map((customer) => {
+      const fittingDresses = fittingDressIdsForCustomer(customer)
+        .map(dressById)
+        .filter(Boolean);
+
+      return {
+        key: `customer-${customer.id}-${customer.fittingDate}-${customer.fittingTime}`,
+        date: customer.fittingDate,
+        time: customer.fittingTime,
+        name: customer.name || '',
+        phone: customer.phone || '',
+        purpose: customer.fittingPurpose || '드레스 피팅',
+        memo: fittingDresses.map((dress) => dress.name).join(', '),
+        status: '고객관리',
+        source: '고객관리',
+        customerId: customer.id,
+        fittingDressIds: fittingDresses.map((dress) => dress.id),
+        selectedDressId: customer.selectedDressId || ''
+      };
+    })
+    .filter((item) => !existingKeys.has(`${item.customerId}-${item.date}-${item.time}`));
+
+  return [...reservationItems, ...customerItems].sort((a, b) =>
+    `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)
+  );
+}
+
+function showFittingScheduleDetail(key) {
+  const month = $('scheduleMonth')?.value || new Date().toISOString().slice(0, 7);
+  const item = buildFittingScheduleItems(month).find((row) => row.key === key);
+  if (!item) return;
+
+  const customer = mergedCustomers().find((row) => row.id === item.customerId);
+  const dressIds = item.fittingDressIds?.length
+    ? item.fittingDressIds
+    : fittingDressIdsForCustomer(customer || {});
+  const dresses = dressIds.map(dressById).filter(Boolean);
+
+  const html = `
+    <section class="schedule-detail-modal">
+      <p class="eyebrow">FITTING DETAIL</p>
+      <h2>${esc(item.name || '고객')} 피팅일정</h2>
+
+      <div class="detail-grid">
+        <div><span>날짜</span><b>${esc(item.date || '-')}</b></div>
+        <div><span>시간</span><b>${esc(item.time || '-')}</b></div>
+        <div><span>고객</span><b>${esc(item.name || '-')}</b></div>
+        <div><span>연락처</span><b class="phone-text">${esc(item.phone || '-')}</b></div>
+        <div><span>구분</span><b>${esc(item.purpose || '-')}</b></div>
+        <div><span>등록 출처</span><b>${esc(item.source || '-')}</b></div>
+      </div>
+
+      <div class="schedule-detail-dresses">
+        <h3>피팅 드레스</h3>
+        <div class="schedule-dress-grid">
+          ${
+            dresses.length
+              ? dresses.map((dress) => `
+                  <button type="button" class="schedule-dress-card" data-dress-id="${esc(dress.id)}">
+                    ${dress.photoUrl ? `<img src="${esc(dress.photoUrl)}" alt="${esc(dress.name || '')}">` : '<span class="no-image">NO IMAGE</span>'}
+                    <b>${esc(dress.name || '-')}</b>
+                    <small>${esc(dress.code || '')}</small>
+                  </button>
+                `).join('')
+              : '<div class="empty">등록된 피팅 드레스가 없습니다.</div>'
+          }
+        </div>
+      </div>
+
+      <div class="detail-memo">
+        <span>메모</span>
+        <p>${esc(item.memo || '기록된 내용이 없습니다.')}</p>
+      </div>
+
+      <div class="detail-actions">
+        <button type="button" class="primary" id="scheduleCustomerOpen">고객관리 열기</button>
+        <button type="button" class="secondary" onclick="closeOpsModal()">닫기</button>
+      </div>
+    </section>
+  `;
+
+  openOpsModal(html);
+
+  $('scheduleCustomerOpen')?.addEventListener('click', () => {
+    closeOpsModal();
+    openCustomerByPhone(item.phone || '');
+  });
+
+  document.querySelectorAll('.schedule-dress-card').forEach((card) => {
+    card.onclick = () => showDressDetail(card.dataset.dressId);
+  });
+}
+
+function renderSchedule() {
+  const monthInput = $('scheduleMonth');
+  if (!monthInput) return;
+
+  const month = monthInput.value || new Date().toISOString().slice(0, 7);
+  monthInput.value = month;
+
+  const items = buildFittingScheduleItems(month);
+  const groups = new Map();
+
+  items.forEach((item) => {
+    if (!groups.has(item.date)) groups.set(item.date, []);
+    groups.get(item.date).push(item);
+  });
+
+  $('scheduleBoard').innerHTML = groups.size
+    ? [...groups.entries()].map(([date, dayItems]) => `
+        <section class="schedule-day-group">
+          <div class="schedule-day-heading">
+            <h3>${esc(date)}</h3>
+            <span>${dayItems.length}건</span>
+          </div>
+
+          <div class="schedule-day-items">
+            ${dayItems.map((item) => `
+              <button type="button" class="schedule-month-item" data-key="${esc(item.key)}">
+                <time>${esc(item.time)}</time>
+                <div>
+                  <b>${esc(item.name)}</b>
+                  <span>${esc(item.purpose)}</span>
+                  <small>${esc(item.memo || '')}</small>
+                </div>
+                <span class="status-chip">${esc(item.source)}</span>
+              </button>
+            `).join('')}
+          </div>
+        </section>
+      `).join('')
+    : '<div class="empty">선택한 월의 피팅 일정이 없습니다.</div>';
+
+  document.querySelectorAll('.schedule-month-item').forEach((button) => {
+    button.onclick = () => showFittingScheduleDetail(button.dataset.key);
+  });
 }
 
 $('newContractBtn').onclick=()=>openOpsModal(contractForm(),saveContract);
@@ -1056,89 +1369,219 @@ $('newHanbokBtn')?.addEventListener('click',()=>openOpsModal(hanbokForm(),saveHa
 ['contractSearch','contractStatusFilter'].forEach(id=>$(id).addEventListener('input',renderContracts));
 ['paymentSearch','paymentMethodFilter'].forEach(id=>$(id).addEventListener('input',renderPayments));
 ['dressSearch','dressStatusFilter'].forEach(id=>$(id).addEventListener('input',renderDresses));
-$('scheduleDate').addEventListener('input',renderSchedule);
+$('scheduleMonth')?.addEventListener('input', renderSchedule);
+
 
 
 const IRO_STATUS = ['사용 가능','예약됨','대여 중','관리 중','보관 중'];
 const HANBOK_TYPES = ['신부','신랑','혼주','기타'];
+const ACCESSORY_TYPES = ['베일','티아라','기타'];
 
-function simpleAssetForm(title, item = {}, kind = 'dress') {
-  const statusOptions = IRO_STATUS.map((status) =>
-    `<option ${item.status === status ? 'selected' : ''}>${status}</option>`
-  ).join('');
+function managedAssetForm(title, item = {}, options = {}) {
+  const {
+    eyebrow = 'MANAGED ITEM',
+    typeField = '',
+    typeOptions = [],
+    folder = 'managed',
+    extraFields = ''
+  } = options;
 
-  return `<form class="ops-form">
-    <p class="eyebrow">IRO STYLE</p>
+  const currentImage = item.photoUrl || '';
+  const previewId = `assetPreview-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const placeholderId = `${previewId}-placeholder`;
+
+  return `<form class="ops-form managed-asset-form" data-folder="${esc(folder)}">
+    <p class="eyebrow">${esc(eyebrow)}</p>
     <h2>${title}</h2>
+
     <input type="hidden" name="id" value="${esc(item.id || '')}">
+    <input type="hidden" name="photoUrl" value="${esc(currentImage)}">
+
+    <div class="managed-image-editor">
+      <div class="managed-image-preview-wrap">
+        <img id="${previewId}" class="managed-image-preview" src="${esc(currentImage)}" alt="제품 사진" ${currentImage ? '' : 'hidden'}>
+        <div id="${placeholderId}" class="managed-image-placeholder" ${currentImage ? 'hidden' : ''}>사진</div>
+      </div>
+
+      <label class="dress-file-label">사진 선택
+        <input
+          type="file"
+          name="photoFile"
+          accept="image/jpeg,image/png,image/webp"
+          onchange="genericImagePreview(this,'${previewId}','${placeholderId}')">
+        <small>JPG·PNG·WEBP, 최대 8MB</small>
+      </label>
+    </div>
+
     <div class="crm-grid">
       <label>제품명<input name="name" value="${esc(item.name || '')}" required></label>
       <label>제품번호<input name="code" value="${esc(item.code || '')}"></label>
-      <label>상태<select name="status">${statusOptions}</select></label>
+
+      ${
+        typeField
+          ? `<label>구분
+              <select name="${esc(typeField)}">
+                ${typeOptions.map((type) => `<option ${item[typeField] === type ? 'selected' : ''}>${type}</option>`).join('')}
+              </select>
+            </label>`
+          : ''
+      }
+
+      <label>상태
+        <select name="status">
+          ${IRO_STATUS.map((status) => `<option ${item.status === status ? 'selected' : ''}>${status}</option>`).join('')}
+        </select>
+      </label>
+
+      ${extraFields}
+
       <label>연결 고객
         <select name="customerId">
           <option value="">없음</option>
           ${customerOptions(item.customerId)}
         </select>
       </label>
-      <label class="crm-wide">메모<textarea name="memo" rows="5">${esc(item.memo || '')}</textarea></label>
+
+      <label class="crm-wide">세부내용<textarea name="memo" rows="5">${esc(item.memo || '')}</textarea></label>
     </div>
+
     <button class="primary" type="submit">저장</button>
   </form>`;
 }
 
-async function saveIroAsset(event, collection, prefix) {
+async function saveManagedAsset(event, collection, prefix, folder, extraBuilder = () => ({})) {
   event.preventDefault();
-  const data = new FormData(event.target);
+
+  const form = event.target;
+  const data = new FormData(form);
+  const id = data.get('id') || makeDocId(prefix);
   const customer = customerById(data.get('customerId'));
+  const file = form.querySelector('[name="photoFile"]')?.files?.[0];
+  const button = form.querySelector('button[type="submit"]');
 
-  const item = {
-    id: data.get('id') || makeDocId(prefix),
-    name: data.get('name').trim(),
-    code: data.get('code').trim(),
-    status: data.get('status'),
-    customerId: data.get('customerId'),
-    customerName: customer.name || '',
-    phone: customer.phone || '',
-    memo: data.get('memo').trim(),
-    updatedAt: new Date().toISOString()
-  };
+  button.disabled = true;
+  button.textContent = file ? '사진 업로드 중...' : '저장 중...';
 
-  await LuaDataService.saveCollectionDoc(collection, item);
-  showToast('<b>이로스타일 정보가 저장되었습니다.</b>');
-  closeOpsModal();
+  try {
+    let photoUrl = data.get('photoUrl') || '';
+    if (file) photoUrl = await uploadManagedImage(file, folder, id);
+
+    const item = {
+      id,
+      name: data.get('name').trim(),
+      code: data.get('code').trim(),
+      status: data.get('status'),
+      customerId: data.get('customerId'),
+      customerName: customer.name || '',
+      phone: customer.phone || '',
+      photoUrl,
+      memo: data.get('memo').trim(),
+      ...extraBuilder(data),
+      updatedAt: new Date().toISOString()
+    };
+
+    await LuaDataService.saveCollectionDoc(collection, item);
+    showToast('<b>정보가 저장되었습니다.</b>');
+    closeOpsModal();
+  } catch (error) {
+    console.error('Managed asset save error:', error);
+    showToast(`<b>저장에 실패했습니다.</b><small>${esc(error.code || error.message || '알 수 없는 오류')}</small>`, 'error');
+  } finally {
+    button.disabled = false;
+    button.textContent = '저장';
+  }
 }
 
-function renderIroList(containerId, data, collection, prefix, label) {
+function showManagedAssetDetail(item, title, editHandler) {
+  if (!item) return;
+
+  const html = `
+    <section class="managed-detail-modal">
+      <div class="managed-detail-photo-wrap">
+        ${
+          item.photoUrl
+            ? `<img src="${esc(item.photoUrl)}" alt="${esc(item.name || '')}" class="managed-detail-photo">`
+            : '<div class="managed-detail-no-image">NO IMAGE</div>'
+        }
+      </div>
+
+      <div class="managed-detail-content">
+        <p class="eyebrow">${esc(title)}</p>
+        <h2>${esc(item.name || '-')}</h2>
+
+        <div class="detail-grid">
+          <div><span>제품번호</span><b>${esc(item.code || '-')}</b></div>
+          <div><span>상태</span><b>${esc(item.status || '-')}</b></div>
+          ${item.type ? `<div><span>구분</span><b>${esc(item.type)}</b></div>` : ''}
+          ${item.category ? `<div><span>분류</span><b>${esc(item.category)}</b></div>` : ''}
+          <div><span>연결 고객</span><b>${esc(item.customerName || '-')}</b></div>
+        </div>
+
+        <div class="detail-memo">
+          <span>세부내용</span>
+          <p>${esc(item.memo || '기록된 내용이 없습니다.')}</p>
+        </div>
+
+        <div class="detail-actions">
+          <button type="button" class="primary" id="managedEditButton">수정</button>
+          <button type="button" class="secondary" onclick="closeOpsModal()">닫기</button>
+        </div>
+      </div>
+    </section>
+  `;
+
+  openOpsModal(html);
+  $('managedEditButton')?.addEventListener('click', editHandler);
+}
+
+function renderManagedAssetList(containerId, data, options) {
   const container = $(containerId);
   if (!container) return;
 
+  const { title, collection, prefix, folder, formFactory, extraBuilder } = options;
+
   container.innerHTML = data.map((item) => `
-    <article class="mini-asset-card">
-      <div>
+    <article class="managed-large-card" data-id="${esc(item.id)}">
+      <div class="managed-large-thumb">
+        ${item.photoUrl ? `<img src="${esc(item.photoUrl)}" alt="${esc(item.name || '')}">` : '<div class="managed-thumb-empty">NO IMAGE</div>'}
+      </div>
+
+      <div class="managed-large-body">
         <span class="status-chip">${esc(item.status || '-')}</span>
         <h3>${esc(item.name || '-')}</h3>
         <p>${esc(item.code || '')}</p>
         <small>${esc(item.customerName || '연결 고객 없음')}</small>
-      </div>
-      <div class="mini-asset-actions">
-        <button class="secondary small iro-edit" data-id="${esc(item.id)}">수정</button>
-        <button class="danger-link iro-remove" data-id="${esc(item.id)}">삭제</button>
+
+        <div class="managed-large-actions">
+          <button class="secondary small managed-edit" data-id="${esc(item.id)}">수정</button>
+          <button class="danger-link managed-remove" data-id="${esc(item.id)}">삭제</button>
+        </div>
       </div>
     </article>
   `).join('') || '<div class="empty">등록된 항목이 없습니다.</div>';
 
-  container.querySelectorAll('.iro-edit').forEach((button) => {
+  container.querySelectorAll('.managed-large-card').forEach((card) => {
+    card.onclick = (event) => {
+      if (event.target.closest('.managed-edit') || event.target.closest('.managed-remove')) return;
+      const item = data.find((row) => row.id === card.dataset.id);
+      showManagedAssetDetail(item, title, () => openOpsModal(
+        formFactory(item),
+        (e) => saveManagedAsset(e, collection, prefix, folder, extraBuilder)
+      ));
+    };
+  });
+
+  container.querySelectorAll('.managed-edit').forEach((button) => {
     button.onclick = () => {
       const item = data.find((row) => row.id === button.dataset.id);
       openOpsModal(
-        simpleAssetForm(`${label} 정보`, item),
-        (event) => saveIroAsset(event, collection, prefix)
+        formFactory(item),
+        (e) => saveManagedAsset(e, collection, prefix, folder, extraBuilder)
       );
     };
   });
 
-  container.querySelectorAll('.iro-remove').forEach((button) => {
+  container.querySelectorAll('.managed-remove').forEach((button) => {
     button.onclick = async () => {
       if (confirm('이 항목을 삭제할까요?')) {
         await LuaDataService.removeCollectionDoc(collection, button.dataset.id);
@@ -1147,124 +1590,114 @@ function renderIroList(containerId, data, collection, prefix, label) {
   });
 }
 
-function renderIroStyle() {
-  renderIroList('iroDressList', iroDressesData, 'iroDresses', 'IRD', '이로스타일 드레스');
-  renderIroList('iroShoesList', iroShoesData, 'iroShoes', 'IRS', '이로스타일 슈즈');
+function iroDressForm(item = {}) {
+  return managedAssetForm('이로스타일 드레스', item, {
+    eyebrow: 'IRO STYLE · DRESS',
+    folder: 'iro-dresses'
+  });
+}
+
+function iroShoesForm(item = {}) {
+  return managedAssetForm('이로스타일 슈즈', item, {
+    eyebrow: 'IRO STYLE · SHOES',
+    folder: 'iro-shoes'
+  });
 }
 
 function hanbokForm(item = {}) {
-  return `<form class="ops-form">
-    <p class="eyebrow">BOMNAL HANBOK</p>
-    <h2>봄날한복 정보</h2>
-    <input type="hidden" name="id" value="${esc(item.id || '')}">
-    <div class="crm-grid">
-      <label>제품명<input name="name" value="${esc(item.name || '')}" required></label>
-      <label>제품번호<input name="code" value="${esc(item.code || '')}"></label>
-      <label>구분
-        <select name="type">
-          ${HANBOK_TYPES.map((type) => `<option ${item.type === type ? 'selected' : ''}>${type}</option>`).join('')}
-        </select>
-      </label>
-      <label>상태
-        <select name="status">
-          ${IRO_STATUS.map((status) => `<option ${item.status === status ? 'selected' : ''}>${status}</option>`).join('')}
-        </select>
-      </label>
-      <label>연결 고객
-        <select name="customerId">
-          <option value="">없음</option>
-          ${customerOptions(item.customerId)}
-        </select>
-      </label>
-      <label class="crm-wide">메모<textarea name="memo" rows="5">${esc(item.memo || '')}</textarea></label>
-    </div>
-    <button class="primary" type="submit">저장</button>
-  </form>`;
+  return managedAssetForm('봄날한복', item, {
+    eyebrow: 'BOMNAL HANBOK',
+    typeField: 'type',
+    typeOptions: HANBOK_TYPES,
+    folder: 'hanbok'
+  });
 }
 
-async function saveHanbok(event) {
-  event.preventDefault();
-  const data = new FormData(event.target);
-  const customer = customerById(data.get('customerId'));
+function accessoryForm(item = {}, category = '베일') {
+  return managedAssetForm(`${category} 악세사리`, { ...item, category: item.category || category }, {
+    eyebrow: 'ACCESSORY',
+    typeField: 'category',
+    typeOptions: ACCESSORY_TYPES,
+    folder: 'accessories',
+    extraFields: `
+      <label>색상<input name="color" value="${esc(item.color || '')}"></label>
+      <label>소재/특징<input name="material" value="${esc(item.material || '')}"></label>
+    `
+  });
+}
 
-  const item = {
-    id: data.get('id') || makeDocId('HB'),
-    name: data.get('name').trim(),
-    code: data.get('code').trim(),
-    type: data.get('type'),
-    status: data.get('status'),
-    customerId: data.get('customerId'),
-    customerName: customer.name || '',
-    phone: customer.phone || '',
-    memo: data.get('memo').trim(),
-    updatedAt: new Date().toISOString()
-  };
+function renderIroStyle() {
+  renderManagedAssetList('iroDressList', iroDressesData, {
+    title: '이로스타일 드레스',
+    collection: 'iroDresses',
+    prefix: 'IRD',
+    folder: 'iro-dresses',
+    formFactory: iroDressForm,
+    extraBuilder: () => ({})
+  });
 
-  await LuaDataService.saveCollectionDoc('hanbok', item);
-  showToast('<b>봄날한복 정보가 저장되었습니다.</b>');
-  closeOpsModal();
+  renderManagedAssetList('iroShoesList', iroShoesData, {
+    title: '이로스타일 슈즈',
+    collection: 'iroShoes',
+    prefix: 'IRS',
+    folder: 'iro-shoes',
+    formFactory: iroShoesForm,
+    extraBuilder: () => ({})
+  });
 }
 
 function renderHanbok() {
-  const container = $('hanbokList');
-  if (!container) return;
+  renderManagedAssetList('hanbokList', hanbokData, {
+    title: '봄날한복',
+    collection: 'hanbok',
+    prefix: 'HB',
+    folder: 'hanbok',
+    formFactory: hanbokForm,
+    extraBuilder: (data) => ({ type: data.get('type') || '기타' })
+  });
+}
 
-  container.innerHTML = hanbokData.map((item) => `
-    <article class="mini-asset-card">
-      <div>
-        <span class="status-chip">${esc(item.status || '-')}</span>
-        <h3>${esc(item.name || '-')}</h3>
-        <p>${esc(item.type || '-')} · ${esc(item.code || '')}</p>
-        <small>${esc(item.customerName || '연결 고객 없음')}</small>
-      </div>
-      <div class="mini-asset-actions">
-        <button class="secondary small hanbok-edit" data-id="${esc(item.id)}">수정</button>
-        <button class="danger-link hanbok-remove" data-id="${esc(item.id)}">삭제</button>
-      </div>
-    </article>
-  `).join('') || '<div class="empty">등록된 한복이 없습니다.</div>';
+function renderAccessories() {
+  ACCESSORY_TYPES.forEach((category) => {
+    const idMap = {
+      '베일': 'veilAccessoryList',
+      '티아라': 'tiaraAccessoryList',
+      '기타': 'otherAccessoryList'
+    };
 
-  container.querySelectorAll('.hanbok-edit').forEach((button) => {
-    button.onclick = () => openOpsModal(
-      hanbokForm(hanbokData.find((item) => item.id === button.dataset.id)),
-      saveHanbok
+    renderManagedAssetList(
+      idMap[category],
+      accessoriesData.filter((item) => item.category === category),
+      {
+        title: category,
+        collection: 'accessories',
+        prefix: category === '베일' ? 'VL' : category === '티아라' ? 'TR' : 'AC',
+        folder: 'accessories',
+        formFactory: (item) => accessoryForm(item, category),
+        extraBuilder: (data) => ({
+          category: data.get('category') || category,
+          color: data.get('color')?.trim() || '',
+          material: data.get('material')?.trim() || ''
+        })
+      }
     );
   });
-
-  container.querySelectorAll('.hanbok-remove').forEach((button) => {
-    button.onclick = async () => {
-      if (confirm('이 한복 정보를 삭제할까요?')) {
-        await LuaDataService.removeCollectionDoc('hanbok', button.dataset.id);
-      }
-    };
-  });
 }
 
 
+$('newContractBtn')?.addEventListener('click',()=>openOpsModal(contractForm(),saveContract));
+$('newPaymentBtn')?.addEventListener('click',()=>openOpsModal(paymentForm(),savePayment));
+$('newDressBtn')?.addEventListener('click',()=>openOpsModal(dressForm(),saveDress));
 
-function openCustomerFromFitting(customerId, phone) {
-  const resolvedId = customerId || customerIdFromPhone(phone || '');
-  const customersTab = document.querySelector('[data-tab="customers"]');
+$('newIroDressBtn')?.addEventListener('click',()=>openOpsModal(iroDressForm(),(event)=>saveManagedAsset(event,'iroDresses','IRD','iro-dresses',()=>({}))));
+$('newIroShoesBtn')?.addEventListener('click',()=>openOpsModal(iroShoesForm(),(event)=>saveManagedAsset(event,'iroShoes','IRS','iro-shoes',()=>({}))));
+$('newHanbokBtn')?.addEventListener('click',()=>openOpsModal(hanbokForm(),(event)=>saveManagedAsset(event,'hanbok','HB','hanbok',(data)=>({type:data.get('type')||'기타'}))));
 
-  if (customersTab) customersTab.click();
+$('newVeilAccessoryBtn')?.addEventListener('click',()=>openOpsModal(accessoryForm({},'베일'),(event)=>saveManagedAsset(event,'accessories','VL','accessories',(data)=>({category:data.get('category')||'베일',color:data.get('color')?.trim()||'',material:data.get('material')?.trim()||''}))));
+$('newTiaraAccessoryBtn')?.addEventListener('click',()=>openOpsModal(accessoryForm({},'티아라'),(event)=>saveManagedAsset(event,'accessories','TR','accessories',(data)=>({category:data.get('category')||'티아라',color:data.get('color')?.trim()||'',material:data.get('material')?.trim()||''}))));
+$('newOtherAccessoryBtn')?.addEventListener('click',()=>openOpsModal(accessoryForm({},'기타'),(event)=>saveManagedAsset(event,'accessories','AC','accessories',(data)=>({category:data.get('category')||'기타',color:data.get('color')?.trim()||'',material:data.get('material')?.trim()||''}))));
 
-  // 고객 목록이 즉시 렌더링되도록 보장한 뒤 해당 고객을 선택한다.
-  renderCustomers();
-  selectCustomer(resolvedId);
-
-  requestAnimationFrame(() => {
-    const selectedCard = document.querySelector(`.customer-card[data-id="${CSS.escape(resolvedId)}"]`);
-    if (selectedCard) selectedCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-    const detail = $('customerDetail');
-    if (detail) detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-}
-
-function bindFittingCustomerLinks() {
-  document.querySelectorAll('.fitting-customer-link').forEach((button) => {
-    button.addEventListener('click', () => {
-      openCustomerFromFitting(button.dataset.customerId || '', button.dataset.phone || '');
-    });
-  });
-}
+['contractSearch','contractStatusFilter'].forEach((id)=>$(id)?.addEventListener('input',renderContracts));
+['paymentSearch','paymentMethodFilter'].forEach((id)=>$(id)?.addEventListener('input',renderPayments));
+['dressSearch','dressStatusFilter'].forEach((id)=>$(id)?.addEventListener('input',renderDresses));
+$('scheduleMonth')?.addEventListener('input',renderSchedule);

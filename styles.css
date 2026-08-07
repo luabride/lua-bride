@@ -885,3 +885,257 @@ header nav a{
     width:100%
   }
 }
+
+
+/* =========================
+   V4 Customer dress picker
+   ========================= */
+.customer-dress-picker{
+  margin:28px 0;
+  padding:22px;
+  border:1px solid #e2d8ca;
+  background:#fbf8f3
+}
+.section-title-row{
+  display:flex;
+  justify-content:space-between;
+  gap:20px;
+  align-items:flex-end;
+  margin-bottom:18px
+}
+.section-title-row h3{margin:4px 0 0;font-size:26px}
+.section-title-row small{color:#827568}
+.fitting-dress-select-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px
+}
+.fitting-dress-select-grid label,
+.selected-dress-select{
+  display:grid;
+  gap:8px;
+  font-size:12px
+}
+.fitting-dress-select-grid select,
+.selected-dress-select select{
+  padding:11px;
+  border:1px solid #d8cdbf;
+  background:#fff
+}
+.mini-dress-preview{
+  height:180px;
+  border:1px solid #e0d6c9;
+  background:#eee8df;
+  display:grid;
+  place-items:center;
+  overflow:hidden
+}
+.mini-dress-preview img{
+  width:100%;
+  height:100%;
+  object-fit:contain
+}
+.mini-dress-preview span{color:#918575;font-size:11px}
+.selected-dress-select{margin:22px 0 12px}
+.customer-selected-dress{
+  display:grid;
+  grid-template-columns:180px 1fr;
+  gap:18px;
+  align-items:center;
+  padding:16px;
+  border:1px solid #ded4c6;
+  background:#fff
+}
+.customer-selected-dress img{
+  width:180px;
+  height:230px;
+  object-fit:contain;
+  background:#eee8df
+}
+.customer-selected-dress h4{margin:8px 0 4px;font-size:24px}
+.customer-selected-dress p{margin:0;color:#83776a}
+.customer-dress-no-image{
+  width:180px;
+  height:230px;
+  display:grid;
+  place-items:center;
+  background:#eee8df;
+  color:#918575
+}
+
+/* =========================
+   Monthly fitting schedule
+   ========================= */
+.schedule-day-group{
+  margin-bottom:26px;
+  border:1px solid #e4d9ca;
+  background:#fff
+}
+.schedule-day-heading{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:14px 18px;
+  background:#f5efe7;
+  border-bottom:1px solid #e4d9ca
+}
+.schedule-day-heading h3{margin:0;font-size:22px}
+.schedule-day-heading span{font-size:12px;color:#7b674a}
+.schedule-day-items{display:grid}
+.schedule-month-item{
+  width:100%;
+  display:grid;
+  grid-template-columns:90px 1fr auto;
+  gap:18px;
+  align-items:center;
+  text-align:left;
+  padding:16px 18px;
+  border:0;
+  border-bottom:1px solid #eee6dc;
+  background:#fff;
+  cursor:pointer
+}
+.schedule-month-item:last-child{border-bottom:0}
+.schedule-month-item:hover{background:#fcf8f2}
+.schedule-month-item time{font-size:22px;font-weight:700}
+.schedule-month-item div{display:grid;gap:4px}
+.schedule-month-item small{color:#8a7d6f}
+.schedule-detail-dresses{margin:22px 0}
+.schedule-dress-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px
+}
+.schedule-dress-card{
+  display:grid;
+  gap:7px;
+  padding:10px;
+  text-align:left;
+  border:1px solid #e1d7ca;
+  background:#fff;
+  cursor:pointer
+}
+.schedule-dress-card img,
+.schedule-dress-card .no-image{
+  width:100%;
+  aspect-ratio:3/4;
+  object-fit:contain;
+  background:#eee8df
+}
+.schedule-dress-card .no-image{display:grid;place-items:center;color:#918575}
+
+/* =========================
+   IRO / Hanbok / Accessory photos
+   ========================= */
+.managed-image-editor{
+  display:grid;
+  grid-template-columns:220px 1fr;
+  gap:24px;
+  align-items:center;
+  margin:18px 0 24px;
+  padding:18px;
+  border:1px solid #e2d8ca;
+  background:#fbf8f3
+}
+.managed-image-preview-wrap{
+  width:220px;
+  aspect-ratio:3/4;
+  overflow:hidden;
+  background:#eee8df
+}
+.managed-image-preview{
+  width:100%;
+  height:100%;
+  object-fit:contain
+}
+.managed-image-placeholder{
+  width:100%;
+  height:100%;
+  display:grid;
+  place-items:center;
+  color:#918575
+}
+.managed-asset-list,
+.mini-asset-list{
+  display:grid;
+  gap:28px
+}
+.managed-large-card{
+  width:min(100%,760px);
+  margin:0 auto;
+  overflow:hidden;
+  border:1px solid #e2d8ca;
+  background:#fff;
+  cursor:pointer
+}
+.managed-large-thumb{
+  width:min(600px,100%);
+  margin:22px auto 0;
+  aspect-ratio:3/4;
+  background:#eee8df;
+  overflow:hidden
+}
+.managed-large-thumb img{
+  width:100%;
+  height:100%;
+  object-fit:contain
+}
+.managed-thumb-empty{
+  width:100%;
+  height:100%;
+  display:grid;
+  place-items:center;
+  color:#918575;
+  letter-spacing:.12em
+}
+.managed-large-body{padding:20px}
+.managed-large-body h3{font-size:27px;margin:9px 0 4px}
+.managed-large-body p{margin:0;color:#827568}
+.managed-large-actions{display:flex;gap:10px;margin-top:15px}
+.ops-modal-card:has(.managed-detail-modal){
+  width:min(1280px,96vw);
+  max-width:1280px
+}
+.managed-detail-photo-wrap{
+  width:min(1200px,100%);
+  margin:0 auto 28px;
+  background:#eee8df
+}
+.managed-detail-photo{
+  display:block;
+  width:min(1200px,100%);
+  max-height:82vh;
+  margin:0 auto;
+  object-fit:contain
+}
+.managed-detail-no-image{
+  min-height:520px;
+  display:grid;
+  place-items:center;
+  color:#918575
+}
+.managed-detail-content{
+  width:min(1200px,100%);
+  margin:0 auto
+}
+.accessory-management-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:28px
+}
+
+@media(max-width:800px){
+  .fitting-dress-select-grid{grid-template-columns:1fr}
+  .customer-selected-dress{grid-template-columns:1fr}
+  .customer-selected-dress img,
+  .customer-dress-no-image{width:100%;height:auto;min-height:260px}
+  .schedule-month-item{grid-template-columns:70px 1fr}
+  .schedule-month-item>.status-chip{grid-column:2}
+  .schedule-dress-grid{grid-template-columns:1fr 1fr}
+  .managed-image-editor{grid-template-columns:1fr}
+  .managed-image-preview-wrap{width:180px}
+}
+
+@media(max-width:520px){
+  .schedule-dress-grid{grid-template-columns:1fr}
+}
