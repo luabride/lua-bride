@@ -6,6 +6,7 @@ let unsubscribeCustomers = null;
 let contractsData = [];
 let paymentsData = [];
 let dressesData = [];
+const DRESS_CATEGORIES = ['아이테오 드레스', '루아 드레스', '이로스타일 드레스'];
 let unsubscribeContracts = null;
 let unsubscribePayments = null;
 let unsubscribeDresses = null;
@@ -515,8 +516,68 @@ function paymentForm(item={}){return `<form class="ops-form"><p class="eyebrow">
 async function savePayment(e){e.preventDefault();const d=new FormData(e.target);const customer=customerById(d.get('customerId'));const item={id:d.get('id')||makeDocId('PM'),customerId:d.get('customerId'),customerName:customer.name||'',phone:customer.phone||'',type:d.get('type'),paidDate:d.get('paidDate'),amount:Number(d.get('amount')||0),method:d.get('method'),contractId:d.get('contractId'),memo:d.get('memo').trim(),updatedAt:new Date().toISOString()};await LuaDataService.saveCollectionDoc('payments',item);showToast('<b>결제정보가 저장되었습니다.</b>');closeOpsModal();}
 function renderPayments(){const q=($('paymentSearch')?.value||'').toLowerCase();const method=$('paymentMethodFilter')?.value||'';const list=paymentsData.filter(x=>(!method||x.method===method)&&(!q||[x.customerName,x.phone,x.memo].some(v=>String(v||'').toLowerCase().includes(q))));const totalContract=contractsData.filter(x=>x.status!=='해지').reduce((s,x)=>s+Number(x.totalAmount||0),0);const paid=paymentsData.reduce((s,x)=>s+(x.type==='환불'?-Number(x.amount||0):Number(x.amount||0)),0);$('paymentTotal').textContent=money(totalContract);$('paidTotal').textContent=money(paid);$('balanceTotal').textContent=money(Math.max(totalContract-paid,0));const paidByCustomer={};paymentsData.forEach(x=>paidByCustomer[x.customerId]=(paidByCustomer[x.customerId]||0)+(x.type==='환불'?-x.amount:x.amount));$('unpaidCount').textContent=contractsData.filter(c=>c.status!=='해지'&&Number(c.totalAmount||0)>(paidByCustomer[c.customerId]||0)).length;$('paymentList').innerHTML=list.map(x=>`<article class="ops-card"><div><span class="status-chip">${esc(x.type)}</span><h3>${esc(x.customerName)}</h3><p>${esc(x.paidDate)} · ${esc(x.method)}</p><p>${esc(x.memo||'')}</p></div><div class="ops-card-side"><b>${money(x.amount)}</b><button class="secondary small edit-payment" data-id="${esc(x.id)}">수정</button><button class="danger-link remove-payment" data-id="${esc(x.id)}">삭제</button></div></article>`).join('')||'<div class="empty">결제 기록이 없습니다.</div>';document.querySelectorAll('.edit-payment').forEach(b=>b.onclick=()=>openOpsModal(paymentForm(paymentsData.find(x=>x.id===b.dataset.id)),savePayment));document.querySelectorAll('.remove-payment').forEach(b=>b.onclick=async()=>{if(confirm('결제 기록을 삭제할까요?'))await LuaDataService.removeCollectionDoc('payments',b.dataset.id)});}
 
-function dressForm(item={}){return `<form class="ops-form"><p class="eyebrow">DRESS</p><h2>드레스 정보</h2><input type="hidden" name="id" value="${esc(item.id||'')}"><div class="crm-grid"><label>품번<input name="code" value="${esc(item.code||'')}" required></label><label>드레스명<input name="name" value="${esc(item.name||'')}" required></label><label>브랜드<input name="brand" value="${esc(item.brand||'')}"></label><label>사이즈<input name="size" value="${esc(item.size||'')}"></label><label>색상<input name="color" value="${esc(item.color||'Ivory')}"></label><label>상태<select name="status">${['피팅 가능','예약됨','대여 중','세탁 중','수선 중','보관 중'].map(x=>`<option ${item.status===x?'selected':''}>${x}</option>`).join('')}</select></label><label>착용횟수<input type="number" name="wearCount" min="0" value="${esc(item.wearCount||0)}"></label><label>연결 고객<select name="customerId"><option value="">없음</option>${customerOptions(item.customerId)}</select></label><label class="crm-wide">메모<textarea name="memo" rows="4">${esc(item.memo||'')}</textarea></label></div><button class="primary" type="submit">저장</button></form>`;}
-async function saveDress(e){e.preventDefault();const d=new FormData(e.target);const customer=customerById(d.get('customerId'));const item={id:d.get('id')||makeDocId('DR'),code:d.get('code').trim(),name:d.get('name').trim(),brand:d.get('brand').trim(),size:d.get('size').trim(),color:d.get('color').trim(),status:d.get('status'),wearCount:Number(d.get('wearCount')||0),customerId:d.get('customerId'),customerName:customer.name||'',memo:d.get('memo').trim(),updatedAt:new Date().toISOString()};await LuaDataService.saveCollectionDoc('dresses',item);showToast('<b>드레스 정보가 저장되었습니다.</b>');closeOpsModal();}
+function dressForm(item={}) {
+  return `<form class="ops-form">
+    <p class="eyebrow">DRESS</p>
+    <h2>드레스 정보</h2>
+    <input type="hidden" name="id" value="${esc(item.id||'')}">
+    <div class="crm-grid">
+      <label>드레스 분류
+        <select name="category" required>
+          <option value="">선택</option>
+          ${DRESS_CATEGORIES.map((category) =>
+            `<option ${item.category===category?'selected':''}>${category}</option>`
+          ).join('')}
+        </select>
+      </label>
+      <label>품번<input name="code" value="${esc(item.code||'')}" required></label>
+      <label>드레스명<input name="name" value="${esc(item.name||'')}" required></label>
+      <label>브랜드<input name="brand" value="${esc(item.brand||'')}"></label>
+      <label>사이즈<input name="size" value="${esc(item.size||'')}"></label>
+      <label>색상<input name="color" value="${esc(item.color||'Ivory')}"></label>
+      <label>상태
+        <select name="status">
+          ${['피팅 가능','예약됨','대여 중','세탁 중','수선 중','보관 중'].map((status) =>
+            `<option ${item.status===status?'selected':''}>${status}</option>`
+          ).join('')}
+        </select>
+      </label>
+      <label>착용횟수<input type="number" name="wearCount" min="0" value="${esc(item.wearCount||0)}"></label>
+      <label>연결 고객
+        <select name="customerId">
+          <option value="">없음</option>
+          ${customerOptions(item.customerId)}
+        </select>
+      </label>
+      <label class="crm-wide">메모<textarea name="memo" rows="4">${esc(item.memo||'')}</textarea></label>
+    </div>
+    <button class="primary" type="submit">저장</button>
+  </form>`;
+}
+async function saveDress(e) {
+  e.preventDefault();
+  const d = new FormData(e.target);
+  const customer = customerById(d.get('customerId'));
+  const item = {
+    id: d.get('id') || makeDocId('DR'),
+    category: d.get('category'),
+    code: d.get('code').trim(),
+    name: d.get('name').trim(),
+    brand: d.get('brand').trim(),
+    size: d.get('size').trim(),
+    color: d.get('color').trim(),
+    status: d.get('status'),
+    wearCount: Number(d.get('wearCount') || 0),
+    customerId: d.get('customerId'),
+    customerName: customer.name || '',
+    phone: customer.phone || '',
+    memo: d.get('memo').trim(),
+    updatedAt: new Date().toISOString()
+  };
+  await LuaDataService.saveCollectionDoc('dresses', item);
+  showToast('<b>드레스 정보가 저장되었습니다.</b>');
+  closeOpsModal();
+};await LuaDataService.saveCollectionDoc('dresses',item);showToast('<b>드레스 정보가 저장되었습니다.</b>');closeOpsModal();}
 function renderDresses(){const q=($('dressSearch')?.value||'').toLowerCase();const st=$('dressStatusFilter')?.value||'';const list=dressesData.filter(x=>(!st||x.status===st)&&(!q||[x.code,x.name,x.brand].some(v=>String(v||'').toLowerCase().includes(q))));$('dressCount').textContent=dressesData.length;$('dressAvailableCount').textContent=dressesData.filter(x=>x.status==='피팅 가능').length;$('dressBookedCount').textContent=dressesData.filter(x=>['예약됨','대여 중'].includes(x.status)).length;$('dressCareCount').textContent=dressesData.filter(x=>['세탁 중','수선 중'].includes(x.status)).length;$('dressList').innerHTML=list.map(x=>`<article class="dress-card"><span class="status-chip">${esc(x.status)}</span><h3>${esc(x.name)}</h3><p>${esc(x.code)} · ${esc(x.brand||'-')}</p><dl><dt>사이즈</dt><dd>${esc(x.size||'-')}</dd><dt>착용횟수</dt><dd>${x.wearCount||0}회</dd><dt>고객</dt><dd>${esc(x.customerName||'-')}</dd></dl><div><button class="secondary small edit-dress" data-id="${esc(x.id)}">수정</button><button class="danger-link remove-dress" data-id="${esc(x.id)}">삭제</button></div></article>`).join('')||'<div class="empty">등록된 드레스가 없습니다.</div>';document.querySelectorAll('.edit-dress').forEach(b=>b.onclick=()=>openOpsModal(dressForm(dressesData.find(x=>x.id===b.dataset.id)),saveDress));document.querySelectorAll('.remove-dress').forEach(b=>b.onclick=async()=>{if(confirm('드레스를 삭제할까요?'))await LuaDataService.removeCollectionDoc('dresses',b.dataset.id)});}
 
 function renderSchedule(){
