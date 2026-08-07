@@ -90,8 +90,25 @@ const LuaDataService = (() => {
       return snap.docs.map((d) => d.data());
     },
     async saveCustomer(customer) {
-      const payload = { ...customer, updatedAt: new Date().toISOString() };
-      await db.collection('customers').doc(customer.id).set(payload, { merge: true });
+      const user = firebase.auth?.().currentUser;
+
+      if (!user) {
+        const error = new Error('관리자 로그인 세션이 없습니다.');
+        error.code = 'auth/session-expired';
+        throw error;
+      }
+
+      await user.getIdToken(true);
+
+      const payload = {
+        ...customer,
+        updatedAt: new Date().toISOString()
+      };
+
+      await db.collection('customers')
+        .doc(customer.id)
+        .set(payload, { merge: true });
+
       return payload;
     },
     subscribeCustomers(cb, onError) {

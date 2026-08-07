@@ -391,16 +391,9 @@ async function saveCustomer(event) {
   const data = new FormData(form);
   const phone = data.get('phone').trim();
   const button = form.querySelector('button[type="submit"]');
-  const originalId = data.get('id') || customerIdFromPhone(phone);
-
-  const previous =
-    savedCustomers.find((item) => item.id === originalId) ||
-    mergedCustomers().find((item) => item.id === originalId) ||
-    {};
 
   const customer = {
-    ...previous,
-    id: originalId,
+    id: data.get('id') || customerIdFromPhone(phone),
     name: data.get('name').trim(),
     phone,
     weddingDate: data.get('weddingDate') || '',
@@ -416,7 +409,6 @@ async function saveCustomer(event) {
     tiara: data.get('tiara').trim(),
     veil: data.get('veil').trim(),
     memo: data.get('memo').trim(),
-    createdAt: previous.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
 
@@ -424,66 +416,55 @@ async function saveCustomer(event) {
   button.textContent = '저장 중...';
 
   try {
-    // 화면에는 먼저 즉시 반영
-    const localIndex = savedCustomers.findIndex((item) => item.id === customer.id);
-    if (localIndex >= 0) {
-      savedCustomers[localIndex] = { ...savedCustomers[localIndex], ...customer };
+    if (LuaDataService.mode === 'firebase') {
+      const user = firebase.auth().currentUser;
+
+      if (!user) {
+        throw Object.assign(
+          new Error('관리자 로그인 세션이 만료되었습니다. 다시 로그인해 주세요.'),
+          { code: 'auth/session-expired' }
+        );
+      }
+
+      await user.getIdToken(true);
+    }
+
+    const saved = await LuaDataService.saveCustomer(customer);
+
+    const index = savedCustomers.findIndex((item) => item.id === customer.id);
+    if (index >= 0) {
+      savedCustomers[index] = { ...savedCustomers[index], ...saved };
     } else {
-      savedCustomers.unshift(customer);
+      savedCustomers.unshift(saved);
     }
 
     selectedCustomerId = customer.id;
     renderCustomers();
-    showCustomerDetail(mergedCustomers().find((item) => item.id === customer.id));
-
-    // Firebase에 저장
-    const saved = await LuaDataService.saveCustomer(customer);
-
-    // 서버에 저장된 최종 값을 다시 확정
-    const finalCustomer = { ...customer, ...saved };
-    const finalIndex = savedCustomers.findIndex((item) => item.id === finalCustomer.id);
-
-    if (finalIndex >= 0) {
-      savedCustomers[finalIndex] = {
-        ...savedCustomers[finalIndex],
-        ...finalCustomer
-      };
-    } else {
-      savedCustomers.unshift(finalCustomer);
-    }
-
-    selectedCustomerId = finalCustomer.id;
-    renderCustomers();
     showCustomerDetail(
-      mergedCustomers().find((item) => item.id === finalCustomer.id)
+      mergedCustomers().find((item) => item.id === customer.id)
     );
+    renderSchedule();
 
     showToast(
-      '<b>고객정보가 수정되었습니다.</b><small>변경한 내용이 Firebase에 저장되었습니다.</small>',
+      '<b>고객정보가 수정되었습니다.</b><small>변경사항이 Firebase에 저장되었습니다.</small>',
       'success'
     );
-
-    renderSchedule();
   } catch (error) {
     console.error('Customer save error:', error);
 
-    // 실패 시 서버/기존 값으로 다시 복구
-    try {
-      const freshCustomers = await LuaDataService.listCustomers();
-      savedCustomers = freshCustomers;
-      renderCustomers();
+    const code = error?.code || 'unknown';
+    let message = error?.message || '알 수 없는 오류';
 
-      if (selectedCustomerId) {
-        showCustomerDetail(
-          mergedCustomers().find((item) => item.id === selectedCustomerId)
-        );
-      }
-    } catch (refreshError) {
-      console.error('Customer refresh error:', refreshError);
+    if (code === 'permission-denied') {
+      message = 'Firestore 보안 규칙에서 고객정보 수정 권한이 차단되었습니다.';
+    } else if (code === 'auth/session-expired') {
+      message = '관리자 로그인 세션이 만료되었습니다. 로그아웃 후 다시 로그인해 주세요.';
+    } else if (code === 'unavailable') {
+      message = 'Firebase 연결이 일시적으로 불안정합니다. 잠시 후 다시 시도해 주세요.';
     }
 
     showToast(
-      `<b>고객정보 수정에 실패했습니다.</b><small>${esc(error?.code || error?.message || '알 수 없는 오류')}</small>`,
+      `<b>고객정보 수정에 실패했습니다.</b><small>${esc(message)}<br>오류 코드: ${esc(code)}</small>`,
       'error'
     );
   } finally {
