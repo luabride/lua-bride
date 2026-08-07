@@ -269,3 +269,80 @@ textarea{padding:13px;border:1px solid var(--line);font:inherit;resize:vertical}
 .schedule-item h3{margin:0 0 7px}
 .schedule-item .fitting-customer-link{font-size:20px}
 .customer-card.active{box-shadow:inset 4px 0 0 var(--gold);background:#f4ede2}
+
+
+/* Lua Bride main menu and partner sections */
+header nav{
+  gap:16px;
+}
+
+header nav a{
+  white-space:nowrap;
+}
+
+.partner-section{
+  display:grid;
+  grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);
+  gap:48px;
+  align-items:center;
+}
+
+.partner-copy{
+  max-width:680px;
+}
+
+.partner-button{
+  display:inline-flex;
+  margin-top:18px;
+}
+
+.partner-card{
+  min-height:260px;
+  padding:38px;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-end;
+  border:1px solid rgba(125,93,41,.2);
+  background:linear-gradient(145deg,#fffdf9,#eee5d8);
+}
+
+.partner-card>span{
+  margin-bottom:auto;
+  font-family:'Montserrat',sans-serif;
+  font-size:12px;
+  letter-spacing:.2em;
+  color:#9b7a45;
+}
+
+.partner-card h3{
+  margin:24px 0 10px;
+  font-family:'Gowun Batang',serif;
+  font-size:30px;
+}
+
+.partner-card p{
+  margin:0;
+  color:#6c6258;
+  line-height:1.8;
+}
+
+@media(max-width:1180px){
+  header nav{
+    gap:11px;
+  }
+
+  header nav a{
+    font-size:11px;
+  }
+}
+
+@media(max-width:900px){
+  .partner-section{
+    grid-template-columns:1fr;
+    gap:24px;
+  }
+
+  .partner-card{
+    min-height:220px;
+  }
+}
