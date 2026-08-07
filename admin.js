@@ -386,28 +386,37 @@ function showCustomerDetail(customer) {
 
 async function saveCustomer(event) {
   event.preventDefault();
+
   const form = event.target;
   const data = new FormData(form);
   const phone = data.get('phone').trim();
   const button = form.querySelector('button[type="submit"]');
+  const originalId = data.get('id') || customerIdFromPhone(phone);
+
+  const previous =
+    savedCustomers.find((item) => item.id === originalId) ||
+    mergedCustomers().find((item) => item.id === originalId) ||
+    {};
 
   const customer = {
-    id: data.get('id') || customerIdFromPhone(phone),
+    ...previous,
+    id: originalId,
     name: data.get('name').trim(),
     phone,
-    weddingDate: data.get('weddingDate'),
-    fittingDate: data.get('fittingDate'),
-    fittingTime: data.get('fittingTime'),
+    weddingDate: data.get('weddingDate') || '',
+    fittingDate: data.get('fittingDate') || '',
+    fittingTime: data.get('fittingTime') || '',
     fittingPurpose: data.get('fittingPurpose') || '드레스 피팅',
-    stage: data.get('stage'),
+    stage: data.get('stage') || '신규',
     venue: data.get('venue').trim(),
     budget: data.get('budget').trim(),
     style: data.get('style').trim(),
-    customerType: data.get('customerType'),
+    customerType: data.get('customerType') || '',
     selectedDress: data.get('selectedDress').trim(),
     tiara: data.get('tiara').trim(),
     veil: data.get('veil').trim(),
     memo: data.get('memo').trim(),
+    createdAt: previous.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
 
@@ -415,13 +424,68 @@ async function saveCustomer(event) {
   button.textContent = '저장 중...';
 
   try {
-    await LuaDataService.saveCustomer(customer);
+    // 화면에는 먼저 즉시 반영
+    const localIndex = savedCustomers.findIndex((item) => item.id === customer.id);
+    if (localIndex >= 0) {
+      savedCustomers[localIndex] = { ...savedCustomers[localIndex], ...customer };
+    } else {
+      savedCustomers.unshift(customer);
+    }
+
     selectedCustomerId = customer.id;
-    showToast('<b>고객정보가 저장되었습니다.</b><small>피팅 일정도 자동으로 연동되었습니다.</small>', 'success');
+    renderCustomers();
+    showCustomerDetail(mergedCustomers().find((item) => item.id === customer.id));
+
+    // Firebase에 저장
+    const saved = await LuaDataService.saveCustomer(customer);
+
+    // 서버에 저장된 최종 값을 다시 확정
+    const finalCustomer = { ...customer, ...saved };
+    const finalIndex = savedCustomers.findIndex((item) => item.id === finalCustomer.id);
+
+    if (finalIndex >= 0) {
+      savedCustomers[finalIndex] = {
+        ...savedCustomers[finalIndex],
+        ...finalCustomer
+      };
+    } else {
+      savedCustomers.unshift(finalCustomer);
+    }
+
+    selectedCustomerId = finalCustomer.id;
+    renderCustomers();
+    showCustomerDetail(
+      mergedCustomers().find((item) => item.id === finalCustomer.id)
+    );
+
+    showToast(
+      '<b>고객정보가 수정되었습니다.</b><small>변경한 내용이 Firebase에 저장되었습니다.</small>',
+      'success'
+    );
+
     renderSchedule();
   } catch (error) {
     console.error('Customer save error:', error);
-    showToast(`<b>고객정보 저장에 실패했습니다.</b><small>${esc(error?.code || error?.message || '알 수 없는 오류')}</small>`, 'error');
+
+    // 실패 시 서버/기존 값으로 다시 복구
+    try {
+      const freshCustomers = await LuaDataService.listCustomers();
+      savedCustomers = freshCustomers;
+      renderCustomers();
+
+      if (selectedCustomerId) {
+        showCustomerDetail(
+          mergedCustomers().find((item) => item.id === selectedCustomerId)
+        );
+      }
+    } catch (refreshError) {
+      console.error('Customer refresh error:', refreshError);
+    }
+
+    showToast(
+      `<b>고객정보 수정에 실패했습니다.</b><small>${esc(error?.code || error?.message || '알 수 없는 오류')}</small>`,
+      'error'
+    );
   } finally {
     button.disabled = false;
     button.textContent = '고객정보 저장';
