@@ -1139,3 +1139,21 @@ header nav a{
 @media(max-width:520px){
   .schedule-dress-grid{grid-template-columns:1fr}
 }
+
+
+/* V4.1 고객 드레스/악세사리 확대 */
+.customer-fitting-dress-preview{width:min(1200px,100%);min-height:360px;margin-top:8px;border:1px solid #e0d6c9;background:#eee8df;display:grid;place-items:center;overflow:hidden}
+.customer-fitting-dress-preview img{width:min(1200px,100%);height:auto;max-height:85vh;object-fit:contain}
+.customer-fitting-dress-preview span{color:#918575;font-size:12px}
+.customer-selected-dress-1200 .customer-selected-dress{display:block;width:100%;padding:18px}
+.customer-selected-dress-1200 .customer-selected-dress img{display:block;width:min(1200px,100%);height:auto;max-height:85vh;object-fit:contain;margin:0 auto 18px;background:#eee8df}
+.customer-selected-dress-1200 .customer-dress-no-image{width:min(1200px,100%);min-height:480px;margin:0 auto 18px}
+.customer-selected-dress-1200 .customer-selected-dress>div:last-child{max-width:1200px;margin:0 auto}
+.customer-accessory-preview-wrap{margin-top:-6px;margin-bottom:18px}
+.customer-accessory-preview{display:grid;grid-template-columns:180px 1fr;gap:18px;align-items:center;padding:14px;border:1px solid #e1d7ca;background:#fff}
+.customer-accessory-preview img{width:180px;height:220px;object-fit:contain;background:#eee8df}
+.customer-accessory-no-image{width:180px;height:220px;display:grid;place-items:center;background:#eee8df;color:#918575}
+.customer-accessory-preview h4{margin:8px 0 5px;font-size:22px}.customer-accessory-preview p{margin:0;color:#827568}
+.ops-customer-link{border:0;padding:0;background:transparent;color:#7d5d29;font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.ops-customer-link:hover{color:#2f261b}
+@media(max-width:700px){.customer-accessory-preview{grid-template-columns:1fr}.customer-accessory-preview img,.customer-accessory-no-image{width:100%;height:auto;min-height:280px}}
