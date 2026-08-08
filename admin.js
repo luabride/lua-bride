@@ -21,6 +21,12 @@ let iroShoesData = [];
 let hanbokData = [];
 let accessoriesData = [];
 let unsubscribeAccessories = null;
+let glowProductsData = [];
+let glowShootsData = [];
+let glowRentalsData = [];
+let unsubscribeGlowProducts = null;
+let unsubscribeGlowShoots = null;
+let unsubscribeGlowRentals = null;
 let unsubscribeCustomers = null;
 let contractsData = [];
 let paymentsData = [];
@@ -29,6 +35,9 @@ const DRESS_CATEGORIES = ['아이테오 드레스', '루아 드레스'];
 let unsubscribeContracts = null;
 let unsubscribePayments = null;
 let unsubscribeDresses = null;
+  unsubscribeGlowProducts = null;
+  unsubscribeGlowShoots = null;
+  unsubscribeGlowRentals = null;
   unsubscribeAccessories = null;
   unsubscribeIroDresses = null;
   unsubscribeIroShoes = null;
@@ -93,6 +102,9 @@ function showApp(user) {
   if (!unsubscribeIroShoes) unsubscribeIroShoes = LuaDataService.subscribeCollection('iroShoes', (data) => { iroShoesData = data; renderIroStyle(); }, showError);
   if (!unsubscribeHanbok) unsubscribeHanbok = LuaDataService.subscribeCollection('hanbok', (data) => { hanbokData = data; renderHanbok(); }, showError);
   if (!unsubscribeAccessories) unsubscribeAccessories = LuaDataService.subscribeCollection('accessories', (data) => { accessoriesData = data; renderAccessories(); }, showError);
+  if (!unsubscribeGlowProducts) unsubscribeGlowProducts = LuaDataService.subscribeCollection('glowProducts', (data) => { glowProductsData = data; renderGlowLounge(); }, showError);
+  if (!unsubscribeGlowShoots) unsubscribeGlowShoots = LuaDataService.subscribeCollection('glowShoots', (data) => { glowShootsData = data; renderGlowLounge(); }, showError);
+  if (!unsubscribeGlowRentals) unsubscribeGlowRentals = LuaDataService.subscribeCollection('glowRentals', (data) => { glowRentalsData = data; renderGlowLounge(); }, showError);
 }
 
 function showLogin() {
@@ -108,6 +120,9 @@ function showLogin() {
   if (unsubscribeIroShoes) unsubscribeIroShoes();
   if (unsubscribeHanbok) unsubscribeHanbok();
   if (unsubscribeAccessories) unsubscribeAccessories();
+  if (unsubscribeGlowProducts) unsubscribeGlowProducts();
+  if (unsubscribeGlowShoots) unsubscribeGlowShoots();
+  if (unsubscribeGlowRentals) unsubscribeGlowRentals();
   unsubscribeReservations = null;
   unsubscribeCustomers = null;
   unsubscribeContracts = null;
@@ -158,6 +173,7 @@ document.querySelectorAll('.admin-tab').forEach((button) => {
     if (button.dataset.tab === 'irostyle' && typeof renderIroStyle === 'function') renderIroStyle();
     if (button.dataset.tab === 'hanbok' && typeof renderHanbok === 'function') renderHanbok();
     if (button.dataset.tab === 'accessories' && typeof renderAccessories === 'function') renderAccessories();
+    if (button.dataset.tab === 'glowlounge' && typeof renderGlowLounge === 'function') renderGlowLounge();
   };
 });
 
@@ -2067,3 +2083,910 @@ $('newOtherAccessoryBtn')?.addEventListener('click',()=>openOpsModal(accessoryFo
 ['paymentSearch','paymentMethodFilter'].forEach((id)=>$(id)?.addEventListener('input',renderPayments));
 ['dressSearch','dressStatusFilter'].forEach((id)=>$(id)?.addEventListener('input',renderDresses));
 $('scheduleMonth')?.addEventListener('input',renderSchedule);
+
+
+/* ============================================================
+   Lua Bride Admin v4.3
+   지점 / 제휴상품 / 글로우라운지 / 계약·결제 보강
+   ============================================================ */
+
+function managedOptionList(data, selectedId = '') {
+  return '<option value="">선택 안함</option>' + data.map((item) =>
+    `<option value="${esc(item.id)}" ${selectedId === item.id ? 'selected' : ''}>${esc(item.name || '-')}${item.code ? ` · ${esc(item.code)}` : ''}</option>`
+  ).join('');
+}
+
+function managedById(data, id) {
+  return data.find((item) => item.id === id) || null;
+}
+
+function partnerPreview(item, label) {
+  if (!item) return `<div class="empty">${label} 상품이 선택되지 않았습니다.</div>`;
+  return `
+    <div class="partner-product-preview">
+      ${
+        item.photoUrl
+          ? `<img src="${esc(item.photoUrl)}" alt="${esc(item.name || label)}">`
+          : '<div class="partner-product-no-image">NO IMAGE</div>'
+      }
+      <div>
+        <span class="status-chip">${esc(label)}</span>
+        <h4>${esc(item.name || '-')}</h4>
+        <p>${esc(item.code || '')}${item.color ? ` · ${esc(item.color)}` : ''}</p>
+      </div>
+    </div>
+  `;
+}
+
+function updatePartnerProductPreview(fieldName, previewId, source, label) {
+  const form = $('customerForm');
+  const id = form?.querySelector(`[name="${fieldName}"]`)?.value || '';
+  const preview = $(previewId);
+  if (preview) preview.innerHTML = partnerPreview(managedById(source, id), label);
+}
+
+function renderCustomers() {
+  const customers = mergedCustomers();
+  const query = $('customerSearch')?.value.trim().toLowerCase() || '';
+  const stage = $('customerStageFilter')?.value || '';
+  const branch = $('customerBranchFilter')?.value || '';
+
+  const filtered = customers.filter((customer) => {
+    const stageMatch = !stage || customer.stage === stage;
+    const branchMatch = !branch || customer.branch === branch;
+    const queryMatch = !query || [
+      customer.name,
+      customer.phone,
+      customer.venue,
+      customer.memo,
+      customer.style,
+      customer.customerType,
+      customer.branch,
+      customer.selectedDress,
+      customer.iroDressName,
+      customer.iroShoesName,
+      customer.hanbokName,
+      customer.glowProductName
+    ].some((value) => String(value || '').toLowerCase().includes(query));
+
+    return stageMatch && branchMatch && queryMatch;
+  });
+
+  $('customerList').innerHTML = filtered.map((customer) => `
+    <button class="customer-card ${selectedCustomerId === customer.id ? 'active' : ''}" data-id="${esc(customer.id)}">
+      <b>${esc(customer.name || '이름 없음')}</b>
+      <span>${esc(customer.phone || '-')}</span>
+      <small>${esc(customer.branch || '지점 미지정')} · ${esc(customer.stage || '신규')} · 예약 ${customer.reservations.length}건</small>
+    </button>
+  `).join('') || '<div class="empty">고객이 없습니다.</div>';
+
+  document.querySelectorAll('.customer-card').forEach((button) => {
+    button.onclick = () => selectCustomer(button.dataset.id);
+  });
+
+  const ninetyDaysLater = Date.now() + 90 * 86400000;
+  $('customerCount').textContent = customers.length;
+  $('consultingCount').textContent = customers.filter((customer) =>
+    ['상담중', '피팅중'].includes(customer.stage)
+  ).length;
+  $('contractCount').textContent = customers.filter((customer) =>
+    customer.stage === '계약완료'
+  ).length;
+  $('weddingSoonCount').textContent = customers.filter((customer) => {
+    if (!customer.weddingDate) return false;
+    const weddingTime = new Date(customer.weddingDate).getTime();
+    return weddingTime >= Date.now() && weddingTime <= ninetyDaysLater;
+  }).length;
+
+  if (selectedCustomerId) {
+    showCustomerDetail(customers.find((customer) => customer.id === selectedCustomerId));
+  }
+}
+
+function showCustomerDetail(customer) {
+  if (!customer) {
+    $('customerDetail').innerHTML = '<div class="empty">고객을 찾을 수 없습니다.</div>';
+    return;
+  }
+
+  const reservations = [...customer.reservations].sort((a, b) =>
+    String(b.date).localeCompare(String(a.date))
+  );
+  const fittingIds = fittingDressIdsForCustomer(customer);
+
+  const iroDress = managedById(iroDressesData, customer.iroDressId || '');
+  const iroShoes = managedById(iroShoesData, customer.iroShoesId || '');
+  const hanbok = managedById(hanbokData, customer.hanbokId || '');
+  const glowProduct = managedById(glowProductsData, customer.glowProductId || '');
+
+  $('customerDetail').innerHTML = `
+    <form id="customerForm" class="crm-form">
+      <input type="hidden" name="id" value="${esc(customer.id)}">
+
+      <div class="crm-head">
+        <div>
+          <p class="eyebrow">CUSTOMER PROFILE</p>
+          <h2>${esc(customer.name || '고객')}</h2>
+          <span class="phone-text">${esc(customer.phone || '-')}</span>
+        </div>
+        <span class="crm-stage">${esc(customer.branch || '지점 미지정')} · ${esc(customer.stage || '신규')}</span>
+      </div>
+
+      <div class="crm-grid">
+        <label>지점
+          <select name="branch" required>
+            <option value="">선택</option>
+            ${['부산본사','창원지점'].map((branch) =>
+              `<option ${customer.branch === branch ? 'selected' : ''}>${branch}</option>`
+            ).join('')}
+          </select>
+        </label>
+
+        <label>고객명<input name="name" value="${esc(customer.name || '')}" required></label>
+        <label>연락처<input name="phone" value="${esc(customer.phone || '')}" required></label>
+
+        <label>관리 단계
+          <select name="stage">
+            ${['신규','상담중','피팅중','계약완료','보류'].map((stage) =>
+              `<option ${customer.stage === stage ? 'selected' : ''}>${stage}</option>`
+            ).join('')}
+          </select>
+        </label>
+
+        <label>예식일<input name="weddingDate" type="date" value="${esc(customer.weddingDate || '')}"></label>
+        <label>피팅 날짜<input name="fittingDate" type="date" value="${esc(customer.fittingDate || '')}"></label>
+        <label>피팅 시간<input name="fittingTime" type="time" value="${esc(customer.fittingTime || '')}"></label>
+
+        <label>피팅 구분
+          <select name="fittingPurpose">
+            ${['1차 피팅','2차 피팅'].map((purpose) =>
+              `<option ${customer.fittingPurpose === purpose ? 'selected' : ''}>${purpose}</option>`
+            ).join('')}
+          </select>
+        </label>
+
+        <label>예식장<input name="venue" value="${esc(customer.venue || '')}"></label>
+        <label>예산<input name="budget" value="${esc(customer.budget || '')}"></label>
+
+        <label>손님구분
+          <select name="customerType">
+            <option value="">선택</option>
+            ${['다이렉트','자체','기타'].map((type) =>
+              `<option ${customer.customerType === type ? 'selected' : ''}>${type}</option>`
+            ).join('')}
+          </select>
+        </label>
+
+        <label class="crm-wide">관심 스타일<input name="style" value="${esc(customer.style || '')}"></label>
+      </div>
+
+      <section class="customer-dress-picker">
+        <div class="section-title-row">
+          <div><p class="eyebrow">FITTING DRESSES</p><h3>피팅한 드레스</h3></div>
+          <small>드레스관리 등록 목록에서 선택합니다.</small>
+        </div>
+
+        <div class="fitting-dress-select-grid">
+          ${fittingIds.map((id, index) => `
+            <label>피팅 드레스 ${index + 1}
+              <select name="fittingDress${index + 1}" onchange="syncSelectedDressFromFittingList(this, ${index + 1})">
+                ${dressSelectOptions(id)}
+              </select>
+              <div id="fittingDressPreview${index + 1}" class="customer-fitting-dress-preview">
+                ${
+                  dressById(id)?.photoUrl
+                    ? `<img src="${esc(dressById(id).photoUrl)}" alt="${esc(dressById(id).name || '')}">`
+                    : '<span>사진 없음</span>'
+                }
+              </div>
+            </label>
+          `).join('')}
+        </div>
+
+        <label class="selected-dress-select">최종 선택 드레스
+          <select name="selectedDressId" onchange="updateCustomerDressPicker()">
+            ${dressSelectOptions(customer.selectedDressId || '')}
+          </select>
+        </label>
+        <div id="customerSelectedDressPreview" class="customer-selected-dress-1200">
+          ${renderCustomerDressPreview(customer)}
+        </div>
+      </section>
+
+      <section class="customer-partner-products">
+        <p class="eyebrow">PARTNER PRODUCTS</p>
+        <h3>제휴 상품 선택</h3>
+
+        <div class="crm-grid">
+          <label>이로스타일 드레스
+            <select name="iroDressId" onchange="updatePartnerProductPreview('iroDressId','customerIroDressPreview',iroDressesData,'이로스타일 드레스')">
+              ${managedOptionList(iroDressesData, customer.iroDressId || '')}
+            </select>
+          </label>
+          <label>이로스타일 슈즈
+            <select name="iroShoesId" onchange="updatePartnerProductPreview('iroShoesId','customerIroShoesPreview',iroShoesData,'이로스타일 슈즈')">
+              ${managedOptionList(iroShoesData, customer.iroShoesId || '')}
+            </select>
+          </label>
+          <div id="customerIroDressPreview" class="crm-wide">${partnerPreview(iroDress,'이로스타일 드레스')}</div>
+          <div id="customerIroShoesPreview" class="crm-wide">${partnerPreview(iroShoes,'이로스타일 슈즈')}</div>
+
+          <label>봄날한복 상품
+            <select name="hanbokId" onchange="updatePartnerProductPreview('hanbokId','customerHanbokPreview',hanbokData,'봄날한복')">
+              ${managedOptionList(hanbokData, customer.hanbokId || '')}
+            </select>
+          </label>
+          <label>글로우라운지 상품
+            <select name="glowProductId" onchange="updatePartnerProductPreview('glowProductId','customerGlowPreview',glowProductsData,'글로우라운지')">
+              ${managedOptionList(glowProductsData, customer.glowProductId || '')}
+            </select>
+          </label>
+          <div id="customerHanbokPreview" class="crm-wide">${partnerPreview(hanbok,'봄날한복')}</div>
+          <div id="customerGlowPreview" class="crm-wide">${partnerPreview(glowProduct,'글로우라운지')}</div>
+        </div>
+      </section>
+
+      <div class="crm-grid">
+        <label class="crm-wide">티아라 종류 및 제품명
+          <select name="tiaraAccessoryId" onchange="updateCustomerAccessoryPreview('티아라')">
+            ${accessoryOptions('티아라', customer.tiaraAccessoryId || '')}
+          </select>
+        </label>
+        <div id="customerTiaraPreview" class="crm-wide customer-accessory-preview-wrap">
+          ${accessoryPreviewHtml(customer.tiaraAccessoryId || '', '티아라')}
+        </div>
+
+        <label class="crm-wide">선택한 베일
+          <select name="veilAccessoryId" onchange="updateCustomerAccessoryPreview('베일')">
+            ${accessoryOptions('베일', customer.veilAccessoryId || '')}
+          </select>
+        </label>
+        <div id="customerVeilPreview" class="crm-wide customer-accessory-preview-wrap">
+          ${accessoryPreviewHtml(customer.veilAccessoryId || '', '베일')}
+        </div>
+
+        <label class="crm-wide">상담 메모<textarea name="memo" rows="6">${esc(customer.memo || '')}</textarea></label>
+      </div>
+
+      <button class="primary" type="submit">고객정보 저장</button>
+      <div id="customerSaveResult" class="result"></div>
+    </form>
+
+    <section class="customer-history">
+      <h3>예약 이력</h3>
+      ${reservations.map((reservation) => `
+        <article>
+          <b>${esc(reservation.date)} ${esc(reservation.time)}</b>
+          <span>${esc(reservation.status)} · ${esc(reservation.purpose)}</span>
+          <small>${esc(reservation.memo || '')}</small>
+        </article>
+      `).join('') || '<p>예약 이력이 없습니다.</p>'}
+    </section>
+  `;
+
+  $('customerForm').onsubmit = saveCustomer;
+}
+
+async function saveCustomer(event) {
+  event.preventDefault();
+
+  const form = event.target;
+  const data = new FormData(form);
+  const phone = data.get('phone').trim();
+  const button = form.querySelector('button[type="submit"]');
+
+  const fittingDressIds = [1,2,3,4,5,6]
+    .map((number) => data.get(`fittingDress${number}`) || '')
+    .filter((id, index, arr) => id && arr.indexOf(id) === index);
+
+  const selectedDressId = data.get('selectedDressId') || '';
+  const selectedDress = dressById(selectedDressId);
+  const iroDress = managedById(iroDressesData, data.get('iroDressId') || '');
+  const iroShoes = managedById(iroShoesData, data.get('iroShoesId') || '');
+  const hanbok = managedById(hanbokData, data.get('hanbokId') || '');
+  const glowProduct = managedById(glowProductsData, data.get('glowProductId') || '');
+
+  const customer = {
+    id: data.get('id') || customerIdFromPhone(phone),
+    branch: data.get('branch') || '',
+    name: data.get('name').trim(),
+    phone,
+    weddingDate: data.get('weddingDate') || '',
+    fittingDate: data.get('fittingDate') || '',
+    fittingTime: data.get('fittingTime') || '',
+    fittingPurpose: data.get('fittingPurpose') || '1차 피팅',
+    stage: data.get('stage') || '신규',
+    venue: data.get('venue').trim(),
+    budget: data.get('budget').trim(),
+    style: data.get('style').trim(),
+    customerType: data.get('customerType') || '',
+    fittingDressIds,
+    selectedDressId,
+    selectedDress: selectedDress?.name || '',
+    selectedDressPhotoUrl: selectedDress?.photoUrl || '',
+    iroDressId: iroDress?.id || '',
+    iroDressName: iroDress?.name || '',
+    iroShoesId: iroShoes?.id || '',
+    iroShoesName: iroShoes?.name || '',
+    hanbokId: hanbok?.id || '',
+    hanbokName: hanbok?.name || '',
+    glowProductId: glowProduct?.id || '',
+    glowProductName: glowProduct?.name || '',
+    tiaraAccessoryId: data.get('tiaraAccessoryId') || '',
+    tiara: accessoryById(data.get('tiaraAccessoryId') || '')?.name || '',
+    veilAccessoryId: data.get('veilAccessoryId') || '',
+    veil: accessoryById(data.get('veilAccessoryId') || '')?.name || '',
+    memo: data.get('memo')?.trim() || '',
+    updatedAt: new Date().toISOString()
+  };
+
+  button.disabled = true;
+  button.textContent = '저장 중...';
+
+  try {
+    if (LuaDataService.mode === 'firebase') {
+      const user = firebase.auth().currentUser;
+      if (!user) {
+        throw Object.assign(new Error('관리자 로그인 세션이 만료되었습니다.'), { code: 'auth/session-expired' });
+      }
+      await user.getIdToken(true);
+    }
+
+    const saved = await LuaDataService.saveCustomer(customer);
+    const index = savedCustomers.findIndex((item) => item.id === customer.id);
+    if (index >= 0) savedCustomers[index] = { ...savedCustomers[index], ...saved };
+    else savedCustomers.unshift(saved);
+
+    selectedCustomerId = customer.id;
+    renderCustomers();
+    showCustomerDetail(mergedCustomers().find((item) => item.id === customer.id));
+    showToast('<b>고객정보가 수정되었습니다.</b><small>지점과 제휴상품 선택정보도 저장되었습니다.</small>', 'success');
+  } catch (error) {
+    console.error('Customer save error:', error);
+    showToast(`<b>고객정보 수정에 실패했습니다.</b><small>${esc(error?.code || error?.message || 'unknown')}</small>`, 'error');
+  } finally {
+    button.disabled = false;
+    button.textContent = '고객정보 저장';
+  }
+}
+
+function contractCustomerSummary(customerId) {
+  const customer = customerById(customerId);
+  if (!customer?.id) return '';
+
+  return `
+    <div class="contract-customer-summary">
+      <div><span>계약자</span><b>${esc(customer.name || '-')}</b></div>
+      <div><span>연락처</span><b class="phone-text">${esc(customer.phone || '-')}</b></div>
+      <div><span>피팅일</span><b>${esc(customer.fittingDate || '-')}</b></div>
+      <div><span>예식장</span><b>${esc(customer.venue || '-')}</b></div>
+      <div><span>손님구분</span><b>${esc(customer.customerType || '-')}</b></div>
+      <div><span>선택 드레스</span><b>${esc(customer.selectedDress || '-')}</b></div>
+    </div>
+  `;
+}
+
+function contractForm(item = {}) {
+  const finance = contractFinancials(item);
+
+  return `<form class="ops-form">
+    <p class="eyebrow">CONTRACT</p>
+    <h2>${item.id ? '계약 수정' : '새 계약'}</h2>
+    <input type="hidden" name="id" value="${esc(item.id || '')}">
+
+    <div class="crm-grid">
+      <label>고객
+        <select name="customerId" required>
+          <option value="">선택</option>
+          ${customerOptions(item.customerId)}
+        </select>
+      </label>
+
+      <label>계약 상태
+        <select name="status">
+          ${['상담','계약진행','계약완료','해지'].map((status) =>
+            `<option ${item.status === status ? 'selected' : ''}>${status}</option>`
+          ).join('')}
+        </select>
+      </label>
+
+      <label>계약일<input type="date" name="contractDate" value="${esc(item.contractDate || '')}"></label>
+      <label>피팅일<input type="date" name="fittingDate" value="${esc(item.fittingDate || item.weddingDate || '')}"></label>
+
+      <label>총 계약금
+        <input type="number" name="totalAmount" min="0" value="${esc(finance.total || '')}" oninput="updateContractBalance()">
+      </label>
+      <label>계약금
+        <input type="number" name="depositAmount" min="0" value="${esc(finance.deposit || '')}" oninput="updateContractBalance()">
+      </label>
+      <label>잔금<input type="number" name="balanceAmount" value="${esc(finance.balance)}" readonly></label>
+
+      <label>상품 구성<input name="packageName" value="${esc(item.packageName || '')}"></label>
+      <label class="crm-wide">계약 메모<textarea name="memo" rows="5">${esc(item.memo || '')}</textarea></label>
+    </div>
+
+    <button class="primary" type="submit">저장</button>
+  </form>`;
+}
+
+async function saveContract(event) {
+  event.preventDefault();
+  const data = new FormData(event.target);
+  const customer = customerById(data.get('customerId'));
+  const totalAmount = Number(data.get('totalAmount') || 0);
+  const depositAmount = Math.min(Number(data.get('depositAmount') || 0), totalAmount);
+
+  const item = {
+    id: data.get('id') || makeDocId('CT'),
+    customerId: data.get('customerId'),
+    customerName: customer.name || '',
+    phone: customer.phone || '',
+    status: data.get('status'),
+    contractDate: data.get('contractDate'),
+    fittingDate: data.get('fittingDate') || customer.fittingDate || '',
+    totalAmount,
+    depositAmount,
+    balanceAmount: Math.max(totalAmount - depositAmount, 0),
+    packageName: data.get('packageName').trim(),
+    memo: data.get('memo').trim(),
+    updatedAt: new Date().toISOString()
+  };
+
+  await LuaDataService.saveCollectionDoc('contracts', item);
+  showToast('<b>계약정보가 저장되었습니다.</b>');
+  closeOpsModal();
+}
+
+function renderContracts() {
+  const query = ($('contractSearch')?.value || '').toLowerCase();
+  const status = $('contractStatusFilter')?.value || '';
+
+  const list = contractsData.filter((contract) =>
+    (!status || contract.status === status) &&
+    (!query || [contract.customerName, contract.phone, contract.id, contract.packageName]
+      .some((value) => String(value || '').toLowerCase().includes(query)))
+  );
+
+  $('contractList').innerHTML = list.map((contract) => {
+    const customer = customerById(contract.customerId);
+    const finance = contractFinancials(contract);
+
+    return `
+      <article class="contract-detail-card">
+        <div class="contract-detail-head">
+          <div>
+            <span class="status-chip">${esc(contract.status || '-')}</span>
+            <h3>
+              <button type="button" class="ops-customer-link"
+                data-customer-id="${esc(contract.customerId || '')}"
+                data-phone="${esc(contract.phone || '')}">
+                ${esc(contract.customerName || '고객')}
+              </button>
+            </h3>
+            <p>${esc(contract.contractDate || '-')} · ${esc(contract.packageName || '상품 미입력')}</p>
+          </div>
+          <div class="contract-card-actions">
+            <button class="secondary small edit-contract" data-id="${esc(contract.id)}">수정</button>
+            <button class="danger-link remove-contract" data-id="${esc(contract.id)}">삭제</button>
+          </div>
+        </div>
+
+        ${contractCustomerSummary(contract.customerId)}
+
+        <div class="contract-money-grid">
+          <div><span>총 계약금</span><b>${money(finance.total)}</b></div>
+          <div><span>계약금</span><b>${money(finance.deposit)}</b></div>
+          <div class="${finance.balance > 0 ? 'balance-due' : ''}"><span>잔금</span><b>${money(finance.balance)}</b></div>
+        </div>
+
+        <div class="contract-extra-grid">
+          <div><span>피팅일</span><b>${esc(contract.fittingDate || customer.fittingDate || '-')}</b></div>
+          <div><span>선택 드레스</span><b>${esc(customer.selectedDress || '-')}</b></div>
+          <div><span>상품 구성</span><b>${esc(contract.packageName || '-')}</b></div>
+        </div>
+
+        ${contract.memo ? `<div class="contract-memo"><span>계약 메모</span><p>${esc(contract.memo)}</p></div>` : ''}
+      </article>
+    `;
+  }).join('') || '<div class="empty">계약이 없습니다.</div>';
+
+  bindOperationCustomerLinks();
+
+  document.querySelectorAll('.edit-contract').forEach((button) => {
+    button.onclick = () => openOpsModal(
+      contractForm(contractsData.find((item) => item.id === button.dataset.id)),
+      saveContract
+    );
+  });
+
+  document.querySelectorAll('.remove-contract').forEach((button) => {
+    button.onclick = async () => {
+      if (confirm('계약을 삭제할까요?')) {
+        await LuaDataService.removeCollectionDoc('contracts', button.dataset.id);
+      }
+    };
+  });
+}
+
+function paymentForm(item = {}) {
+  return `<form class="ops-form">
+    <p class="eyebrow">PAYMENT</p>
+    <h2>결제 기록</h2>
+    <input type="hidden" name="id" value="${esc(item.id || '')}">
+
+    <div class="crm-grid">
+      <label>고객
+        <select name="customerId" required>
+          <option value="">선택</option>${customerOptions(item.customerId)}
+        </select>
+      </label>
+
+      <label>결제 구분
+        <select name="type">
+          ${['계약금','중도금','잔금','환불','기타'].map((type) =>
+            `<option ${item.type === type ? 'selected' : ''}>${type}</option>`
+          ).join('')}
+        </select>
+      </label>
+
+      <label>결제일<input type="date" name="paidDate" value="${esc(item.paidDate || new Date().toISOString().slice(0,10))}"></label>
+      <label>금액<input type="number" name="amount" min="0" value="${esc(item.amount || '')}"></label>
+      <label>잔금일<input type="date" name="balanceDate" value="${esc(item.balanceDate || '')}"></label>
+      <label>잔금액<input type="number" name="balanceAmount" min="0" value="${esc(item.balanceAmount || 0)}"></label>
+
+      <label>결제수단
+        <select name="method">
+          ${['카드','계좌이체','현금','기타'].map((method) =>
+            `<option ${item.method === method ? 'selected' : ''}>${method}</option>`
+          ).join('')}
+        </select>
+      </label>
+
+      <label>관련 계약
+        <select name="contractId">
+          <option value="">선택 안 함</option>
+          ${contractsData.map((contract) =>
+            `<option value="${esc(contract.id)}" ${item.contractId === contract.id ? 'selected' : ''}>${esc(contract.customerName)} · ${esc(contract.id)}</option>`
+          ).join('')}
+        </select>
+      </label>
+
+      <label class="crm-wide">메모<textarea name="memo" rows="4">${esc(item.memo || '')}</textarea></label>
+    </div>
+
+    <button class="primary" type="submit">저장</button>
+  </form>`;
+}
+
+async function savePayment(event) {
+  event.preventDefault();
+  const data = new FormData(event.target);
+  const customer = customerById(data.get('customerId'));
+
+  const item = {
+    id: data.get('id') || makeDocId('PM'),
+    customerId: data.get('customerId'),
+    customerName: customer.name || '',
+    phone: customer.phone || '',
+    type: data.get('type'),
+    paidDate: data.get('paidDate'),
+    amount: Number(data.get('amount') || 0),
+    balanceDate: data.get('balanceDate') || '',
+    balanceAmount: Number(data.get('balanceAmount') || 0),
+    method: data.get('method'),
+    contractId: data.get('contractId'),
+    memo: data.get('memo').trim(),
+    updatedAt: new Date().toISOString()
+  };
+
+  await LuaDataService.saveCollectionDoc('payments', item);
+  showToast('<b>결제정보가 저장되었습니다.</b>');
+  closeOpsModal();
+}
+
+function renderPayments() {
+  const query = ($('paymentSearch')?.value || '').toLowerCase();
+  const method = $('paymentMethodFilter')?.value || '';
+
+  const list = paymentsData.filter((item) =>
+    (!method || item.method === method) &&
+    (!query || [item.customerName, item.phone, item.memo]
+      .some((value) => String(value || '').toLowerCase().includes(query)))
+  );
+
+  const totalAmount = contractsData.filter((item) => item.status !== '해지')
+    .reduce((sum, item) => sum + Number(item.totalAmount || 0), 0);
+  const depositAmount = paymentsData.filter((item) => item.type === '계약금')
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const totalPaid = paymentsData.reduce((sum, item) =>
+    sum + (item.type === '환불' ? -Number(item.amount || 0) : Number(item.amount || 0)), 0);
+  const remaining = Math.max(totalAmount - totalPaid, 0);
+
+  $('paymentTotal').textContent = money(totalAmount);
+  $('paidTotal').textContent = money(depositAmount);
+  $('balanceTotal').textContent = money(remaining);
+
+  const paidByCustomer = {};
+  paymentsData.forEach((item) => {
+    paidByCustomer[item.customerId] =
+      (paidByCustomer[item.customerId] || 0) +
+      (item.type === '환불' ? -Number(item.amount || 0) : Number(item.amount || 0));
+  });
+
+  $('unpaidCount').textContent = contractsData.filter((contract) =>
+    contract.status !== '해지' &&
+    Number(contract.totalAmount || 0) > (paidByCustomer[contract.customerId] || 0)
+  ).length;
+
+  $('paymentList').innerHTML = list.map((item) => `
+    <article class="ops-card">
+      <div>
+        <span class="status-chip">${esc(item.type)}</span>
+        <h3>
+          <button type="button" class="ops-customer-link"
+            data-customer-id="${esc(item.customerId || '')}"
+            data-phone="${esc(item.phone || '')}">
+            ${esc(item.customerName || '고객')}
+          </button>
+        </h3>
+        <p>${esc(item.paidDate || '-')} · ${esc(item.method || '-')}</p>
+        <p>결제금액 ${money(item.amount)} · 잔금일 ${esc(item.balanceDate || '-')} · 잔금액 ${money(item.balanceAmount || 0)}</p>
+        <p>${esc(item.memo || '')}</p>
+      </div>
+      <div class="ops-card-side">
+        <b>${money(item.amount)}</b>
+        <button class="secondary small edit-payment" data-id="${esc(item.id)}">수정</button>
+        <button class="danger-link remove-payment" data-id="${esc(item.id)}">삭제</button>
+      </div>
+    </article>
+  `).join('') || '<div class="empty">결제 기록이 없습니다.</div>';
+
+  bindOperationCustomerLinks();
+
+  document.querySelectorAll('.edit-payment').forEach((button) => {
+    button.onclick = () => openOpsModal(
+      paymentForm(paymentsData.find((item) => item.id === button.dataset.id)),
+      savePayment
+    );
+  });
+
+  document.querySelectorAll('.remove-payment').forEach((button) => {
+    button.onclick = async () => {
+      if (confirm('결제 기록을 삭제할까요?')) {
+        await LuaDataService.removeCollectionDoc('payments', button.dataset.id);
+      }
+    };
+  });
+}
+
+/* ---------------- GLOW LOUNGE ---------------- */
+
+function glowProductForm(item = {}) {
+  return managedAssetForm('글로우라운지 상품', item, {
+    eyebrow: 'GLOW LOUNGE · PRODUCT',
+    folder: 'glow-products',
+    extraFields: `
+      <label>상품구분<input name="productType" value="${esc(item.productType || '')}" placeholder="예: 스튜디오 촬영, 공간대관"></label>
+      <label>판매/대여금액<input type="number" name="price" min="0" value="${esc(item.price || 0)}"></label>
+    `
+  });
+}
+
+function renderGlowProducts() {
+  renderManagedAssetList('glowProductList', glowProductsData, {
+    title: '글로우라운지 상품',
+    collection: 'glowProducts',
+    prefix: 'GLP',
+    folder: 'glow-products',
+    formFactory: glowProductForm,
+    extraBuilder: (data) => ({
+      productType: data.get('productType')?.trim() || '',
+      price: Number(data.get('price') || 0)
+    })
+  });
+}
+
+function glowShootForm(item = {}) {
+  return `<form class="ops-form">
+    <p class="eyebrow">GLOW LOUNGE · SHOOT</p><h2>촬영고객정보</h2>
+    <input type="hidden" name="id" value="${esc(item.id || '')}">
+    <div class="crm-grid">
+      <label>고객<select name="customerId" required><option value="">선택</option>${customerOptions(item.customerId)}</select></label>
+      <label>상품<select name="productId"><option value="">선택 안함</option>${managedOptionList(glowProductsData,item.productId).replace('<option value="">선택 안함</option>','')}</select></label>
+      <label>촬영일<input type="date" name="shootDate" value="${esc(item.shootDate || '')}"></label>
+      <label>촬영시간<input type="time" name="shootTime" value="${esc(item.shootTime || '')}"></label>
+      <label>촬영장소<input name="location" value="${esc(item.location || '글로우라운지')}"></label>
+      <label>상태<select name="status">${['예약','확정','촬영완료','취소'].map(x=>`<option ${item.status===x?'selected':''}>${x}</option>`).join('')}</select></label>
+      <label class="crm-wide">촬영 메모<textarea name="memo" rows="5">${esc(item.memo || '')}</textarea></label>
+    </div>
+    <button class="primary" type="submit">저장</button>
+  </form>`;
+}
+
+async function saveGlowShoot(event) {
+  event.preventDefault();
+  const data = new FormData(event.target);
+  const customer = customerById(data.get('customerId'));
+  const product = managedById(glowProductsData, data.get('productId'));
+
+  await LuaDataService.saveCollectionDoc('glowShoots', {
+    id: data.get('id') || makeDocId('GLS'),
+    customerId: data.get('customerId'),
+    customerName: customer.name || '',
+    phone: customer.phone || '',
+    productId: product?.id || '',
+    productName: product?.name || '',
+    shootDate: data.get('shootDate') || '',
+    shootTime: data.get('shootTime') || '',
+    location: data.get('location').trim(),
+    status: data.get('status'),
+    memo: data.get('memo').trim(),
+    updatedAt: new Date().toISOString()
+  });
+
+  showToast('<b>촬영고객정보가 저장되었습니다.</b>');
+  closeOpsModal();
+}
+
+function renderGlowShoots() {
+  const container = $('glowShootList');
+  if (!container) return;
+
+  container.innerHTML = glowShootsData.map((item) => `
+    <article class="ops-card">
+      <div>
+        <span class="status-chip">${esc(item.status || '-')}</span>
+        <h3><button type="button" class="ops-customer-link" data-customer-id="${esc(item.customerId || '')}" data-phone="${esc(item.phone || '')}">${esc(item.customerName || '고객')}</button></h3>
+        <p>${esc(item.shootDate || '-')} ${esc(item.shootTime || '')} · ${esc(item.productName || '상품 미지정')}</p>
+        <p>${esc(item.location || '')} ${item.memo ? `· ${esc(item.memo)}` : ''}</p>
+      </div>
+      <div class="ops-card-side">
+        <button class="secondary small glow-shoot-edit" data-id="${esc(item.id)}">수정</button>
+        <button class="danger-link glow-shoot-remove" data-id="${esc(item.id)}">삭제</button>
+      </div>
+    </article>
+  `).join('') || '<div class="empty">등록된 촬영고객이 없습니다.</div>';
+
+  bindOperationCustomerLinks();
+  container.querySelectorAll('.glow-shoot-edit').forEach((button) => {
+    button.onclick = () => openOpsModal(glowShootForm(glowShootsData.find(x=>x.id===button.dataset.id)), saveGlowShoot);
+  });
+  container.querySelectorAll('.glow-shoot-remove').forEach((button) => {
+    button.onclick = async () => {
+      if (confirm('촬영고객 정보를 삭제할까요?')) await LuaDataService.removeCollectionDoc('glowShoots', button.dataset.id);
+    };
+  });
+}
+
+function glowRentalForm(item = {}) {
+  return `<form class="ops-form">
+    <p class="eyebrow">GLOW LOUNGE · RENTAL</p><h2>대관일정</h2>
+    <input type="hidden" name="id" value="${esc(item.id || '')}">
+    <div class="crm-grid">
+      <label>고객<select name="customerId"><option value="">고객 없음</option>${customerOptions(item.customerId)}</select></label>
+      <label>상품<select name="productId"><option value="">선택 안함</option>${managedOptionList(glowProductsData,item.productId).replace('<option value="">선택 안함</option>','')}</select></label>
+      <label>대관일<input type="date" name="rentalDate" value="${esc(item.rentalDate || '')}" required></label>
+      <label>시작시간<input type="time" name="startTime" value="${esc(item.startTime || '')}"></label>
+      <label>종료시간<input type="time" name="endTime" value="${esc(item.endTime || '')}"></label>
+      <label>대관료<input type="number" name="fee" min="0" value="${esc(item.fee || 0)}"></label>
+      <label>상태<select name="status">${['예약','확정','완료','취소'].map(x=>`<option ${item.status===x?'selected':''}>${x}</option>`).join('')}</select></label>
+      <label class="crm-wide">메모<textarea name="memo" rows="5">${esc(item.memo || '')}</textarea></label>
+    </div>
+    <button class="primary" type="submit">저장</button>
+  </form>`;
+}
+
+async function saveGlowRental(event) {
+  event.preventDefault();
+  const data = new FormData(event.target);
+  const customer = customerById(data.get('customerId'));
+  const product = managedById(glowProductsData, data.get('productId'));
+
+  await LuaDataService.saveCollectionDoc('glowRentals', {
+    id: data.get('id') || makeDocId('GLR'),
+    customerId: data.get('customerId') || '',
+    customerName: customer.name || '',
+    phone: customer.phone || '',
+    productId: product?.id || '',
+    productName: product?.name || '',
+    rentalDate: data.get('rentalDate') || '',
+    startTime: data.get('startTime') || '',
+    endTime: data.get('endTime') || '',
+    fee: Number(data.get('fee') || 0),
+    status: data.get('status'),
+    memo: data.get('memo').trim(),
+    updatedAt: new Date().toISOString()
+  });
+
+  showToast('<b>대관일정이 저장되었습니다.</b>');
+  closeOpsModal();
+}
+
+function renderGlowRentals() {
+  const container = $('glowRentalList');
+  if (!container) return;
+
+  const list = [...glowRentalsData].sort((a,b) => `${a.rentalDate} ${a.startTime}`.localeCompare(`${b.rentalDate} ${b.startTime}`));
+
+  container.innerHTML = list.map((item) => `
+    <article class="ops-card">
+      <div>
+        <span class="status-chip">${esc(item.status || '-')}</span>
+        <h3>${esc(item.rentalDate || '-')} ${esc(item.startTime || '')}~${esc(item.endTime || '')}</h3>
+        <p>${esc(item.customerName || '고객 미지정')} · ${esc(item.productName || '상품 미지정')}</p>
+        <p>대관료 ${money(item.fee || 0)} ${item.memo ? `· ${esc(item.memo)}` : ''}</p>
+      </div>
+      <div class="ops-card-side">
+        <button class="secondary small glow-rental-edit" data-id="${esc(item.id)}">수정</button>
+        <button class="danger-link glow-rental-remove" data-id="${esc(item.id)}">삭제</button>
+      </div>
+    </article>
+  `).join('') || '<div class="empty">등록된 대관일정이 없습니다.</div>';
+
+  container.querySelectorAll('.glow-rental-edit').forEach((button) => {
+    button.onclick = () => openOpsModal(glowRentalForm(glowRentalsData.find(x=>x.id===button.dataset.id)), saveGlowRental);
+  });
+  container.querySelectorAll('.glow-rental-remove').forEach((button) => {
+    button.onclick = async () => {
+      if (confirm('대관일정을 삭제할까요?')) await LuaDataService.removeCollectionDoc('glowRentals', button.dataset.id);
+    };
+  });
+}
+
+function renderGlowLounge() {
+  renderGlowProducts();
+  renderGlowShoots();
+  renderGlowRentals();
+}
+
+$('customerBranchFilter')?.addEventListener('input', renderCustomers);
+
+document.querySelectorAll('.sub-admin-tab').forEach((button) => {
+  button.addEventListener('click', () => {
+    document.querySelectorAll('.sub-admin-tab').forEach((item) => item.classList.toggle('active', item === button));
+    ['products','shoots','rentals'].forEach((name) => {
+      const panel = $(`glow${name.charAt(0).toUpperCase()+name.slice(1)}Panel`);
+      if (panel) setVisible(panel, button.dataset.glowPanel === name);
+    });
+  });
+});
+
+$('newGlowProductBtn')?.addEventListener('click', () =>
+  openOpsModal(
+    glowProductForm(),
+    (event) => saveManagedAsset(event,'glowProducts','GLP','glow-products',(data)=>({
+      productType:data.get('productType')?.trim()||'',
+      price:Number(data.get('price')||0)
+    }))
+  )
+);
+
+$('newGlowShootBtn')?.addEventListener('click', () => openOpsModal(glowShootForm(), saveGlowShoot));
+$('newGlowRentalBtn')?.addEventListener('click', () => openOpsModal(glowRentalForm(), saveGlowRental));
+
+/* 고객 CSV도 지점/제휴상품 포함 */
+function exportCustomers() {
+  downloadCsv(
+    `lua-bride-customers-${new Date().toISOString().slice(0, 10)}.csv`,
+    ['지점','고객명','연락처','단계','예식일','피팅일','예식장','손님구분','선택드레스','이로스타일드레스','이로스타일슈즈','봄날한복','글로우라운지상품','티아라','베일','상담메모'],
+    mergedCustomers().map((customer) => [
+      customer.branch,
+      customer.name,
+      customer.phone,
+      customer.stage,
+      customer.weddingDate,
+      customer.fittingDate,
+      customer.venue,
+      customer.customerType,
+      customer.selectedDress,
+      customer.iroDressName,
+      customer.iroShoesName,
+      customer.hanbokName,
+      customer.glowProductName,
+      customer.tiara,
+      customer.veil,
+      customer.memo
+    ])
+  );
+}
+

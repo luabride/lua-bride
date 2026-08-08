@@ -56,6 +56,7 @@
         <button class="admin-tab" data-tab="irostyle">이로스타일</button>
         <button class="admin-tab" data-tab="hanbok">봄날한복</button>
         <button class="admin-tab" data-tab="accessories">악세사리</button>
+        <button class="admin-tab" data-tab="glowlounge">글로우라운지</button>
       </nav>
 
       <section id="reservationsTab" class="admin-tab-panel">
@@ -101,6 +102,11 @@
             <select id="customerStageFilter">
               <option value="">모든 단계</option>
               <option>신규</option><option>상담중</option><option>피팅중</option><option>계약완료</option><option>보류</option>
+            </select>
+            <select id="customerBranchFilter">
+              <option value="">모든 지점</option>
+              <option>부산본사</option>
+              <option>창원지점</option>
             </select>
             <button id="customerExportBtn" class="secondary small">고객 CSV</button>
           </div>
@@ -231,6 +237,45 @@
               <div id="otherAccessoryList" class="managed-asset-list"></div>
             </section>
           </div>
+        </section>
+      </section>
+
+
+      <section id="glowloungeTab" class="admin-tab-panel" hidden>
+        <section class="admin-panel ops-panel">
+          <div class="panel-head">
+            <div><p class="eyebrow">GLOW LOUNGE</p><h2>글로우라운지</h2></div>
+          </div>
+
+          <nav class="sub-admin-tabs">
+            <button type="button" class="sub-admin-tab active" data-glow-panel="products">상품리스트</button>
+            <button type="button" class="sub-admin-tab" data-glow-panel="shoots">촬영고객정보</button>
+            <button type="button" class="sub-admin-tab" data-glow-panel="rentals">대관일정</button>
+          </nav>
+
+          <section id="glowProductsPanel" class="glow-subpanel">
+            <div class="panel-head compact">
+              <div><p class="eyebrow">PRODUCTS</p><h3>상품리스트</h3></div>
+              <button id="newGlowProductBtn" class="primary small">상품 추가</button>
+            </div>
+            <div id="glowProductList" class="managed-asset-list"></div>
+          </section>
+
+          <section id="glowShootsPanel" class="glow-subpanel" hidden>
+            <div class="panel-head compact">
+              <div><p class="eyebrow">SHOOTING CUSTOMERS</p><h3>촬영고객정보</h3></div>
+              <button id="newGlowShootBtn" class="primary small">촬영고객 추가</button>
+            </div>
+            <div id="glowShootList" class="ops-cards"></div>
+          </section>
+
+          <section id="glowRentalsPanel" class="glow-subpanel" hidden>
+            <div class="panel-head compact">
+              <div><p class="eyebrow">RENTAL SCHEDULE</p><h3>대관일정</h3></div>
+              <button id="newGlowRentalBtn" class="primary small">대관일정 추가</button>
+            </div>
+            <div id="glowRentalList" class="ops-cards"></div>
+          </section>
         </section>
       </section>
 
