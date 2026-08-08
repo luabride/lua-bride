@@ -1434,3 +1434,23 @@ header nav a{
     min-height:240px
   }
 }
+
+
+/* v4.4 계약/결제 연동 */
+.contract-date-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
+.contract-date-grid>div{padding:14px;border:1px solid #e8ded1;background:#fbf8f3}
+.contract-date-grid span,.payment-contract-summary span,.payment-record-summary>span{display:block;margin-bottom:6px;color:#887b6c;font-size:11px}
+.payment-contract-link{margin:24px 0;padding:20px;border:1px solid #dfd4c6;background:#fbf8f3}
+.payment-contract-link h3{margin:4px 0 16px;font-size:22px}
+.payment-linked-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.payment-linked-grid label{display:grid;gap:7px;font-size:12px}
+.payment-linked-grid input[readonly]{background:#f1ece5;color:#4f473e}
+.payment-linked-card{margin-bottom:18px;padding:20px;border:1px solid #dfd4c6;background:#fff}
+.payment-linked-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding-bottom:15px;border-bottom:1px solid #eee5da}
+.payment-linked-head h3{margin:8px 0 4px;font-size:24px}.payment-linked-head p{margin:0;color:#817568}
+.payment-contract-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:18px 0}
+.payment-contract-summary>div{padding:14px;border:1px solid #e8ded1;background:#fbf8f3}.payment-contract-summary b{font-size:17px}
+.payment-contract-summary .balance-due{border-color:#d9aaa3;background:#fff5f3}.payment-contract-summary .balance-due b{color:#9b4039}
+.payment-record-summary{padding:14px;border:1px solid #e8ded1}.payment-record-summary>b{font-size:21px}.payment-record-summary p{margin:8px 0 0;color:#776b5f}
+@media(max-width:900px){.payment-linked-grid,.payment-contract-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.contract-date-grid,.payment-linked-grid,.payment-contract-summary{grid-template-columns:1fr}.payment-linked-head{display:block}.payment-linked-head .ops-card-side{margin-top:12px}}

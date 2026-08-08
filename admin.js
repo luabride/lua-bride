@@ -2990,3 +2990,282 @@ function exportCustomers() {
   );
 }
 
+/* ============================================================
+   Lua Bride Admin v4.4
+   계약관리 ↔ 결제관리 통합
+   ============================================================ */
+
+function contractFinancials(contract) {
+  const total = Number(contract?.totalAmount || 0);
+  const deposit = Number(contract?.depositAmount || 0);
+  const balance = contract?.balanceAmount === undefined || contract?.balanceAmount === null || contract?.balanceAmount === ''
+    ? Math.max(total - deposit, 0)
+    : Number(contract.balanceAmount || 0);
+  return { total, deposit, balance };
+}
+
+function linkedContractForPayment(item) {
+  if (item?.contractId) {
+    const direct = contractsData.find((contract) => contract.id === item.contractId);
+    if (direct) return direct;
+  }
+  if (item?.customerId) {
+    return contractsData
+      .filter((contract) => contract.customerId === item.customerId && contract.status !== '해지')
+      .sort((a, b) => String(b.updatedAt || b.contractDate || '').localeCompare(String(a.updatedAt || a.contractDate || '')))[0] || null;
+  }
+  return null;
+}
+
+function updateContractBalance() {
+  const form = document.querySelector('#opsModalBody form');
+  if (!form) return;
+  const total = Number(form.querySelector('[name="totalAmount"]')?.value || 0);
+  const deposit = Number(form.querySelector('[name="depositAmount"]')?.value || 0);
+  const balance = Math.max(total - deposit, 0);
+  const output = form.querySelector('[name="balanceAmount"]');
+  if (output) output.value = balance;
+}
+
+function contractCustomerSummary(customerId, contract = {}) {
+  const customer = customerById(customerId);
+  if (!customer?.id) return '';
+  return `
+    <div class="contract-customer-summary">
+      <div><span>계약자</span><b>${esc(customer.name || '-')}</b></div>
+      <div><span>연락처</span><b class="phone-text">${esc(customer.phone || '-')}</b></div>
+      <div><span>피팅일</span><b>${esc(customer.fittingDate || contract.fittingDate || '-')}</b></div>
+      <div><span>본식일</span><b>${esc(customer.weddingDate || contract.weddingDate || '-')}</b></div>
+      <div><span>예식장</span><b>${esc(customer.venue || '-')}</b></div>
+      <div><span>선택 드레스</span><b>${esc(customer.selectedDress || '-')}</b></div>
+    </div>
+  `;
+}
+
+function contractForm(item = {}) {
+  const finance = contractFinancials(item);
+  return `<form class="ops-form">
+    <p class="eyebrow">CONTRACT</p>
+    <h2>${item.id ? '계약 수정' : '새 계약'}</h2>
+    <input type="hidden" name="id" value="${esc(item.id || '')}">
+    <div class="crm-grid">
+      <label>고객
+        <select name="customerId" required>
+          <option value="">선택</option>
+          ${customerOptions(item.customerId)}
+        </select>
+      </label>
+      <label>계약 상태
+        <select name="status">
+          ${['상담','계약진행','계약완료','해지'].map((status) => `<option ${item.status === status ? 'selected' : ''}>${status}</option>`).join('')}
+        </select>
+      </label>
+      <label>계약일<input type="date" name="contractDate" value="${esc(item.contractDate || '')}" required></label>
+      <label>잔금일<input type="date" name="balanceDate" value="${esc(item.balanceDate || '')}"></label>
+      <label>총 계약금<input type="number" name="totalAmount" min="0" value="${esc(finance.total || '')}" oninput="updateContractBalance()"></label>
+      <label>계약금<input type="number" name="depositAmount" min="0" value="${esc(finance.deposit || '')}" oninput="updateContractBalance()"></label>
+      <label>잔금<input type="number" name="balanceAmount" value="${esc(finance.balance)}" readonly></label>
+      <label class="crm-wide">계약 메모<textarea name="memo" rows="5">${esc(item.memo || '')}</textarea></label>
+    </div>
+    <button class="primary" type="submit">저장</button>
+  </form>`;
+}
+
+async function saveContract(event) {
+  event.preventDefault();
+  const data = new FormData(event.target);
+  const customer = customerById(data.get('customerId'));
+  const totalAmount = Number(data.get('totalAmount') || 0);
+  const depositAmount = Math.min(Number(data.get('depositAmount') || 0), totalAmount);
+  const balanceAmount = Math.max(totalAmount - depositAmount, 0);
+  const item = {
+    id: data.get('id') || makeDocId('CT'),
+    customerId: data.get('customerId'),
+    customerName: customer.name || '',
+    phone: customer.phone || '',
+    status: data.get('status'),
+    contractDate: data.get('contractDate') || '',
+    balanceDate: data.get('balanceDate') || '',
+    fittingDate: customer.fittingDate || '',
+    weddingDate: customer.weddingDate || '',
+    totalAmount,
+    depositAmount,
+    balanceAmount,
+    memo: data.get('memo')?.trim() || '',
+    updatedAt: new Date().toISOString()
+  };
+  await LuaDataService.saveCollectionDoc('contracts', item);
+  showToast('<b>계약정보가 저장되었습니다.</b><small>계약일·잔금일·금액정보가 결제관리와 연동됩니다.</small>');
+  closeOpsModal();
+}
+
+function renderContracts() {
+  const query = ($('contractSearch')?.value || '').toLowerCase();
+  const status = $('contractStatusFilter')?.value || '';
+  const list = contractsData.filter((contract) =>
+    (!status || contract.status === status) &&
+    (!query || [contract.customerName, contract.phone, contract.id].some((value) => String(value || '').toLowerCase().includes(query)))
+  );
+  $('contractList').innerHTML = list.map((contract) => {
+    const finance = contractFinancials(contract);
+    return `
+      <article class="contract-detail-card">
+        <div class="contract-detail-head">
+          <div>
+            <span class="status-chip">${esc(contract.status || '-')}</span>
+            <h3><button type="button" class="ops-customer-link" data-customer-id="${esc(contract.customerId || '')}" data-phone="${esc(contract.phone || '')}">${esc(contract.customerName || '고객')}</button></h3>
+            <p>계약일 ${esc(contract.contractDate || '-')} · 잔금일 ${esc(contract.balanceDate || '-')}</p>
+          </div>
+          <div class="contract-card-actions">
+            <button class="secondary small edit-contract" data-id="${esc(contract.id)}">수정</button>
+            <button class="danger-link remove-contract" data-id="${esc(contract.id)}">삭제</button>
+          </div>
+        </div>
+        ${contractCustomerSummary(contract.customerId, contract)}
+        <div class="contract-money-grid">
+          <div><span>총 계약금</span><b>${money(finance.total)}</b></div>
+          <div><span>계약금</span><b>${money(finance.deposit)}</b></div>
+          <div class="${finance.balance > 0 ? 'balance-due' : ''}"><span>잔금</span><b>${money(finance.balance)}</b></div>
+        </div>
+        <div class="contract-date-grid">
+          <div><span>계약일</span><b>${esc(contract.contractDate || '-')}</b></div>
+          <div><span>잔금일</span><b>${esc(contract.balanceDate || '-')}</b></div>
+        </div>
+        ${contract.memo ? `<div class="contract-memo"><span>계약 메모</span><p>${esc(contract.memo)}</p></div>` : ''}
+      </article>
+    `;
+  }).join('') || '<div class="empty">계약이 없습니다.</div>';
+  bindOperationCustomerLinks();
+  document.querySelectorAll('.edit-contract').forEach((button) => {
+    button.onclick = () => openOpsModal(contractForm(contractsData.find((item) => item.id === button.dataset.id)), saveContract);
+  });
+  document.querySelectorAll('.remove-contract').forEach((button) => {
+    button.onclick = async () => {
+      if (confirm('계약을 삭제할까요?')) await LuaDataService.removeCollectionDoc('contracts', button.dataset.id);
+    };
+  });
+}
+
+function paymentContractOptions(selectedContractId = '', selectedCustomerId = '') {
+  const list = contractsData.filter((contract) => !selectedCustomerId || contract.customerId === selectedCustomerId);
+  return '<option value="">계약 선택</option>' + list.map((contract) => {
+    const finance = contractFinancials(contract);
+    return `<option value="${esc(contract.id)}" ${selectedContractId === contract.id ? 'selected' : ''}>${esc(contract.customerName || '고객')} · ${esc(contract.contractDate || '계약일 미입력')} · ${money(finance.total)}</option>`;
+  }).join('');
+}
+
+function syncPaymentFromContract(selectElement) {
+  const form = selectElement?.form;
+  if (!form) return;
+  const contract = contractsData.find((item) => item.id === selectElement.value);
+  const fields = ['linkedTotalAmount','linkedContractDate','linkedBalanceDate','linkedBalanceAmount'];
+  if (!contract) {
+    fields.forEach((name) => { const field = form.querySelector(`[name="${name}"]`); if (field) field.value = ''; });
+    return;
+  }
+  const finance = contractFinancials(contract);
+  const customerSelect = form.querySelector('[name="customerId"]');
+  if (customerSelect && contract.customerId) customerSelect.value = contract.customerId;
+  form.querySelector('[name="linkedTotalAmount"]').value = finance.total;
+  form.querySelector('[name="linkedContractDate"]').value = contract.contractDate || '';
+  form.querySelector('[name="linkedBalanceDate"]').value = contract.balanceDate || '';
+  form.querySelector('[name="linkedBalanceAmount"]').value = finance.balance;
+}
+
+function paymentForm(item = {}) {
+  const linked = linkedContractForPayment(item);
+  const finance = contractFinancials(linked || {});
+  return `<form class="ops-form">
+    <p class="eyebrow">PAYMENT</p><h2>결제 기록</h2>
+    <input type="hidden" name="id" value="${esc(item.id || '')}">
+    <div class="crm-grid">
+      <label>고객<select name="customerId" required><option value="">선택</option>${customerOptions(item.customerId || linked?.customerId)}</select></label>
+      <label>연결 계약<select name="contractId" onchange="syncPaymentFromContract(this)" required>${paymentContractOptions(item.contractId || linked?.id || '', item.customerId || '')}</select></label>
+      <label>결제 구분<select name="type">${['계약금','중도금','잔금','환불','기타'].map((type) => `<option ${item.type === type ? 'selected' : ''}>${type}</option>`).join('')}</select></label>
+      <label>결제일<input type="date" name="paidDate" value="${esc(item.paidDate || new Date().toISOString().slice(0,10))}"></label>
+      <label>이번 결제금액<input type="number" name="amount" min="0" value="${esc(item.amount || '')}"></label>
+      <label>결제수단<select name="method">${['카드','계좌이체','현금','기타'].map((method) => `<option ${item.method === method ? 'selected' : ''}>${method}</option>`).join('')}</select></label>
+    </div>
+    <section class="payment-contract-link">
+      <p class="eyebrow">LINKED CONTRACT</p><h3>계약관리 연동 정보</h3>
+      <div class="payment-linked-grid">
+        <label>총계약금<input type="number" name="linkedTotalAmount" value="${esc(finance.total || '')}" readonly></label>
+        <label>계약일<input type="date" name="linkedContractDate" value="${esc(linked?.contractDate || '')}" readonly></label>
+        <label>잔금일<input type="date" name="linkedBalanceDate" value="${esc(linked?.balanceDate || '')}" readonly></label>
+        <label>잔금<input type="number" name="linkedBalanceAmount" value="${esc(finance.balance || 0)}" readonly></label>
+      </div>
+    </section>
+    <label class="crm-wide">메모<textarea name="memo" rows="4">${esc(item.memo || '')}</textarea></label>
+    <button class="primary" type="submit">저장</button>
+  </form>`;
+}
+
+async function savePayment(event) {
+  event.preventDefault();
+  const data = new FormData(event.target);
+  const customer = customerById(data.get('customerId'));
+  const contract = contractsData.find((item) => item.id === data.get('contractId'));
+  if (!contract) { showToast('<b>연결할 계약을 선택해 주세요.</b>', 'error'); return; }
+  const finance = contractFinancials(contract);
+  const item = {
+    id: data.get('id') || makeDocId('PM'),
+    customerId: contract.customerId || data.get('customerId'),
+    customerName: contract.customerName || customer.name || '',
+    phone: contract.phone || customer.phone || '',
+    contractId: contract.id,
+    type: data.get('type'),
+    paidDate: data.get('paidDate') || '',
+    amount: Number(data.get('amount') || 0),
+    method: data.get('method'),
+    memo: data.get('memo')?.trim() || '',
+    contractTotalAmount: finance.total,
+    contractDepositAmount: finance.deposit,
+    contractBalanceAmount: finance.balance,
+    contractDate: contract.contractDate || '',
+    contractBalanceDate: contract.balanceDate || '',
+    updatedAt: new Date().toISOString()
+  };
+  await LuaDataService.saveCollectionDoc('payments', item);
+  showToast('<b>결제정보가 저장되었습니다.</b><small>계약관리 금액·날짜와 연결되었습니다.</small>');
+  closeOpsModal();
+}
+
+function renderPayments() {
+  const query = ($('paymentSearch')?.value || '').toLowerCase();
+  const method = $('paymentMethodFilter')?.value || '';
+  const list = paymentsData.filter((item) => (!method || item.method === method) && (!query || [item.customerName, item.phone, item.memo].some((value) => String(value || '').toLowerCase().includes(query))));
+  const activeContracts = contractsData.filter((item) => item.status !== '해지');
+  $('paymentTotal').textContent = money(activeContracts.reduce((sum, item) => sum + contractFinancials(item).total, 0));
+  $('paidTotal').textContent = money(activeContracts.reduce((sum, item) => sum + contractFinancials(item).deposit, 0));
+  $('balanceTotal').textContent = money(activeContracts.reduce((sum, item) => sum + contractFinancials(item).balance, 0));
+  $('unpaidCount').textContent = activeContracts.filter((contract) => contractFinancials(contract).balance > 0).length;
+  $('paymentList').innerHTML = list.map((item) => {
+    const contract = linkedContractForPayment(item);
+    const finance = contract ? contractFinancials(contract) : { total:Number(item.contractTotalAmount||0), deposit:Number(item.contractDepositAmount||0), balance:Number(item.contractBalanceAmount||0) };
+    const contractDate = contract?.contractDate || item.contractDate || '-';
+    const balanceDate = contract?.balanceDate || item.contractBalanceDate || '-';
+    return `
+      <article class="payment-linked-card">
+        <div class="payment-linked-head">
+          <div>
+            <span class="status-chip">${esc(item.type || '-')}</span>
+            <h3><button type="button" class="ops-customer-link" data-customer-id="${esc(item.customerId || contract?.customerId || '')}" data-phone="${esc(item.phone || contract?.phone || '')}">${esc(item.customerName || contract?.customerName || '고객')}</button></h3>
+            <p>${esc(item.paidDate || '-')} · ${esc(item.method || '-')}</p>
+          </div>
+          <div class="ops-card-side"><b>${money(item.amount || 0)}</b><button class="secondary small edit-payment" data-id="${esc(item.id)}">수정</button><button class="danger-link remove-payment" data-id="${esc(item.id)}">삭제</button></div>
+        </div>
+        <div class="payment-contract-summary">
+          <div><span>총계약금</span><b>${money(finance.total)}</b></div>
+          <div><span>계약일</span><b>${esc(contractDate)}</b></div>
+          <div><span>잔금일</span><b>${esc(balanceDate)}</b></div>
+          <div class="${finance.balance > 0 ? 'balance-due' : ''}"><span>잔금</span><b>${money(finance.balance)}</b></div>
+        </div>
+        <div class="payment-record-summary"><span>이번 결제</span><b>${money(item.amount || 0)}</b>${item.memo ? `<p>${esc(item.memo)}</p>` : ''}</div>
+      </article>
+    `;
+  }).join('') || '<div class="empty">결제 기록이 없습니다.</div>';
+  bindOperationCustomerLinks();
+  document.querySelectorAll('.edit-payment').forEach((button) => { button.onclick = () => openOpsModal(paymentForm(paymentsData.find((item) => item.id === button.dataset.id)), savePayment); });
+  document.querySelectorAll('.remove-payment').forEach((button) => { button.onclick = async () => { if (confirm('결제 기록을 삭제할까요?')) await LuaDataService.removeCollectionDoc('payments', button.dataset.id); }; });
+}
+
